@@ -1,0 +1,94 @@
+---
+// The list of articles in one language, with a switch to the lists in the other languages.
+import Base from "../layouts/Base.astro";
+import LangSwitch from "./LangSwitch.astro";
+import PostList from "./PostList.astro";
+import { getPosts, postUrl } from "../lib/content";
+import { LANGS, UI, WRITING_BASE, type Lang } from "../lib/i18n";
+import { breadcrumbs, person, PERSON_ID, WEBSITE_ID } from "../data/schema";
+import { SITE } from "../data/site";
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = UI[lang];
+const posts = await getPosts(lang);
+const tags = [...new Set(posts.flatMap((p) => p.data.tags))].slice(0, 18);
+const links = Object.fromEntries(LANGS.map((l) => [l, WRITING_BASE[l]])) as Record<Lang, string>;
+const blog = {
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "@id": `${SITE.url}${WRITING_BASE[lang]}#blog`,
+  url: `${SITE.url}${WRITING_BASE[lang]}`,
+  name: `${SITE.name} - ${t.listEyebrow}`,
+  inLanguage: lang,
+  author: { "@id": PERSON_ID },
+  isPartOf: { "@id": WEBSITE_ID },
+  blogPost: posts.map((p) => ({
+    "@type": "BlogPosting",
+    headline: p.data.title,
+    url: `${SITE.url}${postUrl(p)}`,
+    datePublished: p.data.published.toISOString(),
+  })),
+};
+---
+
+<Base
+  title={t.listMetaTitle}
+  description={t.listDescription}
+  lang={lang}
+  alternates={LANGS.map((l) => ({ lang: l, href: WRITING_BASE[l] }))}
+  jsonLd={[
+    person(),
+    blog,
+    breadcrumbs([
+      { name: t.home, path: "/" },
+      { name: t.writing, path: WRITING_BASE[lang] },
+    ]),
+  ]}
+>
+  <header class="wrap page-head">
+    <div class="top">
+      <p class="eyebrow">{t.listEyebrow}</p>
+      <LangSwitch lang={lang} links={links} />
+    </div>
+    <h1>{t.listTitle}</h1>
+    <p class="lede">{t.listLede}</p>
+    <ul class="chips tags" aria-label={t.topics}>
+      {tags.map((tag) => <li class="chip">{tag}</li>)}
+    </ul>
+  </header>
+  <section class="wrap list">
+    <h2 class="sr-only">{t.allList}</h2>
+    <PostList posts={posts} />
+    <p class="rss mono muted">{t.subscribe} <a href="/rss.xml">{t.rss}</a></p>
+  </section>
+</Base>
+
+<style>
+  .page-head {
+    padding-block: clamp(48px, 8vw, 104px) clamp(32px, 5vw, 56px);
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .top .eyebrow {
+    margin: 0;
+  }
+  .tags {
+    list-style: none;
+    padding: 0;
+    margin: 28px 0 0;
+  }
+  .list {
+    padding-bottom: clamp(64px, 10vw, 120px);
+  }
+  .rss {
+    margin-top: 28px;
+  }
+</style>

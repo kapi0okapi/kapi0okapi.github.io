@@ -1,0 +1,224 @@
+---
+// One project as a card. On hover the image gets a detection box: orange corners and a label
+// tab with the project's area, as a detector would draw it.
+import { Image } from "astro:assets";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  project: CollectionEntry<"projects">;
+  size?: "large" | "normal";
+  lang?: "en" | "nb";
+  headingLevel?: 2 | 3;
+}
+const { project, size = "normal", lang = "en", headingLevel = 3 } = Astro.props;
+const { title, summary, cover, coverAlt, area, metrics, status, tags } = project.data;
+const href = `/work/${project.id}/`;
+const Heading = `h${headingLevel}` as "h2" | "h3";
+const confidence = (0.9 + ((title.length * 7) % 9) / 100).toFixed(2);
+---
+
+<article class:list={["card", `card--${size}`]}>
+  <div class="frame vf">
+    <Image
+      src={cover}
+      alt={coverAlt}
+      widths={size === "large" ? [480, 720, 960, 1280] : [400, 640, 800]}
+      sizes={size === "large" ? "(max-width: 860px) 100vw, 58vw" : "(max-width: 640px) 100vw, (max-width: 1000px) 50vw, 380px"}
+      loading="lazy"
+      decoding="async"
+    />
+    <span class="tag mono" aria-hidden="true">{area.toLowerCase()} {confidence}</span>
+  </div>
+  <div class="body">
+    <p class="meta mono">
+      <span>{area}</span>
+      {status === "training" && <span class="training">{lang === "nb" ? "trenes nå" : "training now"}</span>}
+    </p>
+    <Heading class="title"><a href={href}>{title}</a></Heading>
+    <p class="summary">{summary}</p>
+    {
+      metrics.length > 0 && (
+        <dl class="metrics">
+          {metrics.slice(0, 3).map((m) => (
+            <div>
+              <dt class="mono">{m.label}</dt>
+              <dd>{m.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )
+    }
+    {
+      metrics.length === 0 && (
+        <ul class="chips" aria-label="Tools">
+          {tags.slice(0, 4).map((t) => (
+            <li class="chip">{t}</li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+</article>
+
+<style>
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .card--large {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 56px);
+    align-items: center;
+  }
+  .frame {
+    --c: transparent;
+    --l: 18px;
+    --w: 2px;
+    position: relative;
+    display: block;
+    padding: 7px;
+    border-radius: 2px;
+  }
+  .frame :global(img) {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    background: var(--wash);
+    transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.3s;
+  }
+  .tag {
+    position: absolute;
+    left: 7px;
+    top: -14px;
+    padding: 2px 6px;
+    font-size: 0.68rem;
+    line-height: 1.4;
+    background: var(--accent);
+    color: var(--ink);
+    border-radius: 2px 2px 0 0;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+  }
+  .card:hover .frame,
+  .card:focus-within .frame {
+    --c: var(--accent);
+  }
+  .card:hover .tag,
+  .card:focus-within .tag {
+    opacity: 1;
+    transform: none;
+  }
+  .card:hover .frame :global(img) {
+    transform: scale(0.985);
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+  .training {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent-ink);
+  }
+  .training::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.3;
+    }
+  }
+  .title {
+    margin: 0 0 8px;
+    font-size: 1.25rem;
+  }
+  .card--large .title {
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  }
+  .title a {
+    text-decoration: none;
+  }
+  .title a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .summary {
+    color: var(--ink-2);
+    font-size: 0.97rem;
+    margin-bottom: 14px;
+  }
+  .card--large .summary {
+    font-size: 1.05rem;
+  }
+  .metrics {
+    container-type: inline-size;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: auto 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  /* value on top, label under it: values line up even when labels wrap differently */
+  .metrics div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .metrics dd {
+    order: -1;
+    margin: 0 0 4px;
+    font-weight: 600;
+    /* scales down in narrow cards so values like "0.40-0.59 %" stay inside their column */
+    font-size: min(1.15rem, 5.2cqi);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .metrics dt {
+    /* exactly three lines, so the metric rows of neighbouring cards start at the same height */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    min-height: 4.05em;
+    color: var(--muted);
+    font-size: 0.68rem;
+    line-height: 1.35;
+  }
+  .chips {
+    list-style: none;
+    margin: auto 0 0;
+    padding: 0;
+  }
+  @media (max-width: 860px) {
+    .card--large {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

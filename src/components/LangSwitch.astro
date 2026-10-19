@@ -1,0 +1,64 @@
+---
+// EN · NO · PL switch for a page that exists in several languages. Missing languages are shown
+// greyed out, so the switch has the same shape on every article.
+import { LANG_LABEL, LANG_NAME, LANGS, UI, type Lang } from "../lib/i18n";
+
+interface Props {
+  lang: Lang;
+  links: Partial<Record<Lang, string>>;
+}
+const { lang, links } = Astro.props;
+---
+
+<nav class="switch mono" aria-label={UI[lang].language}>
+  {
+    LANGS.map((l) =>
+      l === lang ? (
+        <span class="on" aria-current="true" title={LANG_NAME[l]}>
+          {LANG_LABEL[l]}
+        </span>
+      ) : links[l] ? (
+        <a href={links[l]} hreflang={l} lang={l} title={LANG_NAME[l]}>
+          {LANG_LABEL[l]}
+        </a>
+      ) : (
+        <span class="off" title={LANG_NAME[l]}>
+          {LANG_LABEL[l]}
+        </span>
+      ),
+    )
+  }
+</nav>
+
+<style>
+  .switch {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    font-size: 0.76rem;
+  }
+  .switch > * {
+    display: inline-grid;
+    place-items: center;
+    min-width: 38px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--ink-2);
+  }
+  .switch a:hover {
+    color: var(--accent-ink);
+    background: var(--accent-wash);
+  }
+  .on {
+    background: var(--ink);
+    color: #fff !important;
+  }
+  .off {
+    color: var(--line-strong) !important;
+  }
+</style>

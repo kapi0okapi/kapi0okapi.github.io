@@ -1,0 +1,303 @@
+---
+import { Image } from "astro:assets";
+import Base from "../layouts/Base.astro";
+import { breadcrumbs, person, profilePage } from "../data/schema";
+import { EDUCATION, EXPERIENCE, LANGUAGES, SITE, SKILLS } from "../data/site";
+import portrait from "../assets/portrait.jpg";
+
+---
+
+<Base
+  title="About & CV - Kacper Pawlowski, AI Engineer (NTNU, Trondheim)"
+  description="CV and background of Kacper Pawlowski: AI engineer at Lighthouse Consulting, MSc student in AI and industrial mathematics at NTNU. Experience, education and skills."
+  type="profile"
+  image="/og/about.png"
+  jsonLd={[
+    person(),
+    profilePage("/about/"),
+    breadcrumbs([
+      { name: "Home", path: "/" },
+      { name: "About", path: "/about/" },
+    ]),
+  ]}
+>
+  <header class="wrap intro">
+    <div class="text">
+      <h1>About me</h1>
+      <p class="lede">
+        I'm Kacper Pawlowski, an AI engineer at Lighthouse Consulting and an MSc student at NTNU in Trondheim. I build
+        computer vision and 3D perception systems, from the first look at the raw data to a model that runs on the hardware
+        it was meant for.
+      </p>
+      <p>
+        At NTNU I study computer science with a specialisation in artificial intelligence, alongside a second master's in
+        industrial mathematics - which is where the linear algebra, optimisation and estimation theory behind SLAM, bundle
+        adjustment and Kalman filters come from. I spent an exchange semester at Instituto Superior Técnico in Lisbon.
+      </p>
+      <p>
+        I like problems where the data is messy and the answer can be checked against something real: a ground-truth
+        trajectory, a road register, a defect that is either there or not. Most of my <a href="/work/">projects</a> are
+        built that way, and the <a href="/writing/">articles</a> show how they work.
+      </p>
+      <div class="actions">
+        <a class="btn" href={`mailto:${SITE.email}`}>{SITE.email}</a>
+        <a class="btn btn--ghost" href={SITE.linkedin} rel="me noopener" target="_blank">LinkedIn</a>
+        <a class="btn btn--ghost" href={SITE.github} rel="me noopener" target="_blank">GitHub</a>
+      </div>
+      <p class="note muted">
+        A PDF version of my CV is available on request - <a href={`mailto:${SITE.email}?subject=CV`}>send me an email</a>.
+      </p>
+    </div>
+    <figure class="photo vf">
+      <div class="shot">
+        <Image
+          src={portrait}
+          alt="Kacper Pawlowski in front of a painted mural"
+          widths={[360, 540, 714, 820]}
+          sizes="(max-width: 860px) 70vw, 360px"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <span class="bbox" aria-hidden="true"><i class="mono">person 0.99</i></span>
+      </div>
+    </figure>
+  </header>
+
+  <section class="section cv" aria-labelledby="experience">
+    <div class="wrap cv-grid">
+      <h2 id="experience" class="label">Experience</h2>
+      <ol class="entries">
+        {
+          EXPERIENCE.map((e) => (
+            <li class="entry">
+              <p class="period mono">{e.period}</p>
+              <div>
+                <h3>
+                  {e.title} <span class="org">· {e.org}</span>
+                </h3>
+                <p>{e.text}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="section cv" aria-labelledby="education">
+    <div class="wrap cv-grid">
+      <h2 id="education" class="label">Education</h2>
+      <ol class="entries">
+        {
+          EDUCATION.map((e) => (
+            <li class="entry">
+              <p class="period mono">{e.period}</p>
+              <div>
+                <h3>
+                  {e.degree} <span class="org">· {e.school}</span>
+                </h3>
+                {e.note && <p>{e.note}</p>}
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="section cv" aria-labelledby="skills">
+    <div class="wrap cv-grid">
+      <h2 id="skills" class="label">Skills</h2>
+      <dl class="skills">
+        {
+          SKILLS.map((s) => (
+            <div>
+              <dt class="mono">{s.group}</dt>
+              <dd>
+                <ul class="chips">
+                  {s.items.map((i) => (
+                    <li class="chip">{i}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          ))
+        }
+        <div>
+          <dt class="mono">Spoken</dt>
+          <dd>
+            <ul class="chips">
+              {LANGUAGES.map((l) => <li class="chip">{l}</li>)}
+            </ul>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+</Base>
+
+<style>
+  .intro {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: clamp(40px, 7vw, 112px);
+    align-items: start;
+    padding-block: clamp(48px, 8vw, 104px);
+  }
+  .text p:not(.eyebrow):not(.lede) {
+    color: var(--ink-2);
+    max-width: 62ch;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 32px;
+  }
+  .photo {
+    --c: var(--accent);
+    --l: 24px;
+    --w: 2px;
+    position: relative;
+    margin: 0;
+    padding: 10px;
+  }
+  .photo :global(img) {
+    width: 100%;
+    border-radius: 3px;
+  }
+  .shot {
+    position: relative;
+    line-height: 0;
+  }
+  /* a detector-style box around the person in the photo */
+  .bbox {
+    position: absolute;
+    left: 38.3%;
+    top: 53.7%;
+    width: 25.6%;
+    height: 46.3%;
+    border: 2px solid var(--accent);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .bbox i {
+    position: absolute;
+    left: -2px;
+    bottom: 100%;
+    padding: 3px 6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.66rem;
+    font-style: normal;
+    line-height: 1.2;
+    white-space: nowrap;
+    border-radius: 2px 2px 0 0;
+  }
+  .photo figcaption {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .photo figcaption span {
+    background: var(--accent);
+    color: var(--ink);
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+  .cv {
+    padding-block: clamp(48px, 7vw, 80px);
+  }
+  .cv-grid {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: clamp(24px, 5vw, 64px);
+  }
+  .label {
+    font-size: 1.1rem;
+    margin: 4px 0 0;
+  }
+  .entries {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .entry {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 24px;
+    padding-bottom: 28px;
+  }
+  .entry + .entry {
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+  .entry .period {
+    margin: 3px 0 0;
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+  .entry h3 {
+    font-size: 1.1rem;
+    margin-bottom: 6px;
+  }
+  .org {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .entry p {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.97rem;
+    max-width: 64ch;
+  }
+  .skills {
+    margin: 0;
+    display: grid;
+    gap: 18px;
+  }
+  .skills div {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 24px;
+  }
+  .skills dt {
+    color: var(--muted);
+    font-size: 0.76rem;
+    padding-top: 4px;
+  }
+  .skills dd {
+    margin: 0;
+  }
+  .skills .chips {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .note {
+    margin-top: 18px;
+    font-size: 0.9rem;
+  }
+  @media (max-width: 860px) {
+    .intro {
+      grid-template-columns: 1fr;
+    }
+    .photo {
+      max-width: 320px;
+      order: -1;
+    }
+    .cv-grid {
+      grid-template-columns: 1fr;
+    }
+    @media (max-width: 560px) {
+    .entry,
+    .skills div {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+  }
+</style>

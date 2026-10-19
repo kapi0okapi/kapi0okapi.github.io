@@ -1,0 +1,104 @@
+---
+import Base from "../../layouts/Base.astro";
+import ProjectCard from "../../components/ProjectCard.astro";
+import { getProjects } from "../../lib/content";
+import { breadcrumbs, person } from "../../data/schema";
+import { SITE } from "../../data/site";
+
+const projects = await getProjects();
+const areas = ["Road infrastructure", "3D & sensors", "Computer vision", "Deployment"] as const;
+const intro: Record<(typeof areas)[number], string> = {
+  "Road infrastructure": "Norway's road register, road photos and the models that check one against the other.",
+  "3D & sensors": "LiDAR, cameras, GNSS and IMU: odometry, mapping, segmentation and fusion, mostly written from the papers.",
+  "Computer vision": "Segmentation, depth, detection, anomaly detection - fine-tuned, measured and broken down by failure case.",
+  Deployment: "Making models small and fast enough for the device they will run on.",
+};
+const itemList = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: `Projects by ${SITE.name}`,
+  itemListElement: projects.map((p, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    url: `${SITE.url}/work/${p.id}/`,
+    name: p.data.title,
+  })),
+};
+---
+
+<Base
+  title="Projects - Kacper Pawlowski, AI Engineer"
+  description="Computer vision, LiDAR and sensor-fusion projects by Kacper Pawlowski: road inspection, SLAM, visual odometry, segmentation, depth and INT8 deployment."
+  jsonLd={[
+    person(),
+    itemList,
+    breadcrumbs([
+      { name: "Home", path: "/" },
+      { name: "Work", path: "/work/" },
+    ]),
+  ]}
+>
+  <header class="wrap page-head">
+    <h1>Projects</h1>
+    <p class="lede">
+      Every project starts from raw data and ends with a number I can defend: an error against a reference, a recall split
+      by failure case, a latency on real hardware. The code is on <a href={SITE.github} rel="me noopener">GitHub</a>.
+    </p>
+    <nav class="jump mono" aria-label="Areas">
+      {areas.map((a) => <a href={`#${a.toLowerCase().replace(/[^a-z]+/g, "-")}`}>{a}</a>)}
+    </nav>
+  </header>
+
+  {
+    areas.map((area) => {
+      const items = projects.filter((p) => p.data.area === area);
+      return (
+        <section class="section area" id={area.toLowerCase().replace(/[^a-z]+/g, "-")}>
+          <div class="wrap">
+            <div class="section-head">
+              <div>
+                <h2>{area}</h2>
+              </div>
+              <p class="muted area-intro">{intro[area]}</p>
+            </div>
+            <div class="grid card-grid">
+              {items.map((p) => (
+                <ProjectCard project={p} />
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    })
+  }
+</Base>
+
+<style>
+  .page-head {
+    padding-block: clamp(48px, 8vw, 104px) clamp(32px, 5vw, 56px);
+  }
+  .jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 28px;
+  }
+  .jump a {
+    text-decoration: none;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+  .jump a:hover {
+    border-color: var(--accent);
+  }
+  .area {
+    border-top: 1px solid var(--line);
+    padding-block: clamp(48px, 7vw, 88px);
+  }
+  .area-intro {
+    max-width: 46ch;
+    margin: 0;
+  }
+</style>

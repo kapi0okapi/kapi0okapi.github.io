@@ -1,0 +1,128 @@
+---
+import Base from "../layouts/Base.astro";
+
+const sources = [
+  {
+    name: "Vegbilder and NVDB",
+    by: "Statens vegvesen",
+    licence: "Norwegian Licence for Open Government Data (NLOD) 2.0",
+    href: "https://data.norge.no/nlod/en/2.0",
+    use: "Road photos of the E6 in the hero video and on project pages; guard-rail and road-network data in the inspection projects. The photos are anonymised by Statens vegvesen.",
+  },
+  {
+    name: "KITTI Vision Benchmark Suite",
+    by: "A. Geiger, P. Lenz, C. Stiller and R. Urtasun (KIT and Toyota Technological Institute at Chicago)",
+    licence: "Creative Commons Attribution-NonCommercial-ShareAlike 3.0",
+    href: "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+    use: "The LiDAR point cloud in the background (odometry sequence 07, accumulated sweeps), the street scenes in the lab and the trajectories in the SLAM and visual-odometry articles.",
+  },
+  {
+    name: "VisA (Visual Anomaly) dataset",
+    by: "Amazon Science (Zou et al., ECCV 2022)",
+    licence: "Creative Commons Attribution 4.0",
+    href: "https://creativecommons.org/licenses/by/4.0/",
+    use: "Images in the anomaly-detection project and article.",
+  },
+  {
+    name: "YOLO26",
+    by: "Ultralytics",
+    licence: "GNU AGPL-3.0",
+    href: "https://github.com/ultralytics/ultralytics",
+    use: "Detection and segmentation models; the YOLO26n weights served in the lab. The quantisation code is in my edge-optimization repository.",
+  },
+  {
+    name: "Depth Anything V2 (Small)",
+    by: "L. Yang et al.",
+    licence: "Apache 2.0",
+    href: "https://github.com/DepthAnything/Depth-Anything-V2",
+    use: "Relative depth in the hero video.",
+  },
+  {
+    name: "COCO images",
+    by: "T.-Y. Lin et al. (Microsoft COCO), photos by their Flickr authors",
+    licence: "Each photo under its Flickr Creative Commons licence; annotations Creative Commons Attribution 4.0",
+    href: "https://cocodataset.org/#termsofuse",
+    use: "The photos in the video and cover of the multimodal image search project (COCO 2014 5K test set).",
+  },
+  {
+    name: "COCO and Cityscapes label sets",
+    by: "Lin et al.; Cordts et al.",
+    licence: "Class definitions used by the pretrained models",
+    href: "https://cocodataset.org/",
+    use: "Class names and colours of the detection and segmentation overlays.",
+  },
+  {
+    name: "ONNX Runtime Web",
+    by: "Microsoft",
+    licence: "MIT",
+    href: "https://github.com/microsoft/onnxruntime",
+    use: "Runs the model in the lab.",
+  },
+  {
+    name: "Geist and Geist Mono",
+    by: "Vercel",
+    licence: "SIL Open Font License 1.1",
+    href: "https://github.com/vercel/geist-font",
+    use: "Typefaces.",
+  },
+];
+---
+
+<Base
+  title="Credits and licences - Kacper Pawlowski"
+  description="Data, models and fonts used on kacperpawlowski.tech, with their authors and licences: Vegbilder and NVDB (NLOD), KITTI, VisA, YOLO26, Depth Anything V2."
+>
+  <div class="wrap page">
+    <h1>Credits and licences</h1>
+    <p class="lede">
+      This site is built on open data and open models. Everything shown that I did not make myself comes from the sources
+      below.
+    </p>
+    <ul class="list">
+      {
+        sources.map((s) => (
+          <li>
+            <h2>{s.name}</h2>
+            <p class="mono muted">
+              {s.by} · <a href={s.href} rel="noopener">{s.licence}</a>
+            </p>
+            <p>{s.use}</p>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="muted small">
+      Site design, text, project code and figures: Kacper Pawlowski. Built with Astro; no cookies, no trackers.
+    </p>
+  </div>
+</Base>
+
+<style>
+  .page {
+    padding-block: clamp(48px, 8vw, 104px);
+  }
+  .list {
+    list-style: none;
+    margin: 48px 0;
+    padding: 0;
+    max-width: 75ch;
+    border-top: 1px solid var(--line);
+  }
+  .list li {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .list h2 {
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+  }
+  .list p {
+    margin: 0 0 6px;
+  }
+  .list .mono {
+    font-size: 0.74rem;
+  }
+  .small {
+    font-size: 0.9rem;
+  }
+</style>

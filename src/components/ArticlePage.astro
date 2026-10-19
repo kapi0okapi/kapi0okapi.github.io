@@ -1,0 +1,359 @@
+---
+// One article in one language, with a switch to the same article in the other languages.
+import { Image } from "astro:assets";
+import { render } from "astro:content";
+import Base from "../layouts/Base.astro";
+import LangSwitch from "./LangSwitch.astro";
+import PostList from "./PostList.astro";
+import { formatDate, getProjects, isoDate, langOf, postUrl, readingMinutes, versionsOf, type Post } from "../lib/content";
+import { UI, WRITING_BASE, type Lang } from "../lib/i18n";
+import { article, breadcrumbs, person } from "../data/schema";
+import { SITE } from "../data/site";
+import portrait from "../assets/portrait-face.jpg";
+
+interface Props {
+  post: Post;
+  all: Post[];
+}
+const { post, all } = Astro.props;
+const { data } = post;
+const lang = langOf(post);
+const t = UI[lang];
+const { Content, headings } = await render(post);
+const path = postUrl(post);
+const og = `/og/writing/${post.id}.png`;
+const toc = headings.filter((h) => h.depth === 2);
+const minutes = readingMinutes(post.body);
+
+const versions = versionsOf(post, all);
+const links = Object.fromEntries(Object.entries(versions).map(([l, p]) => [l, postUrl(p!)])) as Partial<Record<Lang, string>>;
+const alternates = Object.entries(links).map(([l, href]) => ({ lang: l, href: href! }));
+const original = lang !== "en" ? links.en : undefined;
+const translations = lang === "en" ? alternates.filter((a) => a.lang !== "en").map((a) => a.href) : undefined;
+
+const projects = await getProjects();
+const project = projects.find((p) => p.id === data.project);
+const more = all.filter((p) => langOf(p) === lang && p.id !== post.id).slice(0, 3);
+---
+
+
+<Base
+  title={data.title.length > 48 ? data.title : `${data.title} - Kacper Pawlowski`}
+  description={data.description}
+  image={og}
+  imageAlt={data.coverAlt}
+  type="article"
+  lang={lang}
+  alternates={alternates}
+  published={data.published.toISOString()}
+  modified={(data.updated ?? data.published).toISOString()}
+  jsonLd={[
+    person(),
+    article({
+      title: data.title,
+      description: data.description,
+      path,
+      published: data.published,
+      updated: data.updated,
+      image: og,
+      tags: data.tags,
+      lang,
+      original,
+      translations,
+    }),
+    breadcrumbs([
+      { name: t.home, path: "/" },
+      { name: t.writing, path: WRITING_BASE[lang] },
+      { name: data.title, path },
+    ]),
+  ]}
+>
+  <div class="progress" aria-hidden="true"></div>
+  <article class="post">
+    <header class="wrap head">
+      <nav class="crumbs mono" aria-label="Breadcrumb">
+        <a href="/">{t.home}</a><span aria-hidden="true">/</span><a href={WRITING_BASE[lang]}>{t.writing}</a>
+      </nav>
+      <p class="eyebrow">
+        <time datetime={isoDate(data.published)}>{formatDate(data.published, lang)}</time>
+        <span aria-hidden="true">·</span>
+        <span>{minutes} {t.minRead}</span>
+      </p>
+      <h1>{data.title}</h1>
+      <p class="lede">{data.description}</p>
+      <div class="byline">
+        <Image src={portrait} alt="" width={64} height={80} class="avatar" />
+        <span>
+          <a href="/about/" rel="author">{SITE.name}</a>
+          <span class="muted mono">{t.byline}</span>
+        </span>
+        <span class="twin"><LangSwitch lang={lang} links={links} /></span>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <figure class="cover">
+        <Image
+          src={data.cover}
+          alt={data.coverAlt}
+          widths={[640, 960, 1280]}
+          sizes="(max-width: 1180px) 100vw, 1100px"
+          loading="eager"
+          fetchpriority="high"
+        />
+      </figure>
+      <div class="layout">
+        <div class="prose">
+          <Content />
+          <ul class="chips tags" aria-label="Tags">
+            {data.tags.map((tag) => <li class="chip">{tag}</li>)}
+          </ul>
+        </div>
+        <aside class="aside">
+          {
+            toc.length > 1 && (
+              <nav class="box toc" aria-label={t.contents}>
+                <p class="eyebrow">{t.contents}</p>
+                <ol>
+                  {toc.map((h) => (
+                    <li>
+                      <a href={`#${h.slug}`}>{h.text}</a>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+            )
+          }
+          {
+            project && (
+              <div class="box">
+                <p class="eyebrow">{t.project}</p>
+                <p>
+                  <a href={`/work/${project.id}/`}>{project.data.title} →</a>
+                </p>
+                <p class="muted small">{project.data.summary}</p>
+              </div>
+            )
+          }
+        </aside>
+      </div>
+
+      <section class="author" aria-label={t.aboutAuthor}>
+        <Image src={portrait} alt={`${SITE.name}`} width={120} height={150} class="author-photo" />
+        <div>
+          <p class="eyebrow">{t.aboutAuthor}</p>
+          <p>{t.bio}</p>
+          <p class="mono links">
+            <a href="/about/">{t.aboutLink}</a>
+            <a href={SITE.linkedin} rel="me noopener" target="_blank">LinkedIn</a>
+            <a href={SITE.github} rel="me noopener" target="_blank">GitHub</a>
+          </p>
+        </div>
+      </section>
+    </div>
+  </article>
+
+  {
+    more.length > 0 && (
+      <section class="section">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">{t.moreWriting}</p>
+              <h2>{t.keepReading}</h2>
+            </div>
+            <a class="more" href={WRITING_BASE[lang]}>{t.allArticles}</a>
+          </div>
+          <PostList posts={more} />
+        </div>
+      </section>
+    )
+  }
+</Base>
+
+<style>
+  .progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 60;
+    background: var(--accent);
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+    animation: progress linear both;
+    animation-timeline: scroll(root);
+  }
+  @supports not (animation-timeline: scroll()) {
+    .progress {
+      display: none;
+    }
+  }
+  @keyframes progress {
+    to {
+      transform: scaleX(1);
+    }
+  }
+  .head {
+    padding-block: clamp(32px, 5vw, 64px) clamp(28px, 4vw, 40px);
+  }
+  .crumbs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: clamp(28px, 5vw, 56px);
+    font-size: 0.74rem;
+  }
+  .crumbs a {
+    text-decoration: none;
+    color: var(--muted);
+  }
+  .crumbs span {
+    color: var(--muted);
+  }
+  .eyebrow {
+    gap: 8px;
+  }
+  h1 {
+    font-size: clamp(2rem, 4.6vw, 3.6rem);
+    max-width: 22ch;
+  }
+  .byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .byline > span {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.35;
+  }
+  .byline a[rel="author"] {
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .byline :global(.avatar) {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    object-position: 50% 20%;
+    border-radius: 50%;
+  }
+  .twin {
+    margin-left: auto;
+  }
+  .cover {
+    margin: 0;
+  }
+  .cover :global(img) {
+    width: 100%;
+    max-height: 540px;
+    object-fit: contain;
+    padding: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: clamp(32px, 6vw, 96px);
+    padding-block: clamp(40px, 6vw, 72px);
+  }
+  .tags {
+    list-style: none;
+    padding: 0;
+    margin-top: 3em;
+  }
+  .aside {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: sticky;
+    top: calc(var(--header-h) + 24px);
+    align-self: start;
+  }
+  .box {
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .box p {
+    margin: 0 0 6px;
+  }
+  .box .eyebrow {
+    margin-bottom: 10px;
+  }
+  .toc ol {
+    margin: 0;
+    padding: 0 0 0 1.1em;
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+  .toc li + li {
+    margin-top: 8px;
+  }
+  .toc a {
+    text-decoration: none;
+    color: var(--ink-2);
+  }
+  .toc a:hover {
+    color: var(--accent-ink);
+  }
+  .small {
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+  .author {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    max-width: 70ch;
+    margin-bottom: clamp(56px, 8vw, 96px);
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--wash);
+  }
+  .author :global(.author-photo) {
+    width: 84px;
+    height: 105px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex: none;
+  }
+  .author p {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+  }
+  .author .eyebrow {
+    margin-bottom: 8px;
+  }
+  .links {
+    display: flex;
+    gap: 16px;
+    font-size: 0.78rem;
+  }
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .aside {
+      position: static;
+      order: -1;
+    }
+    .toc {
+      display: none;
+    }
+  }
+  @media (max-width: 520px) {
+    .author {
+      flex-direction: column;
+    }
+    .twin {
+      margin-left: 0;
+    }
+  }
+</style>

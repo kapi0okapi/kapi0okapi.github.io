@@ -1,0 +1,517 @@
+---
+// Live hand-gesture recognition from the webcam: MediaPipe finds 21 landmarks per hand, and the
+// classifier from hand-gesture-recognition (an MLP on 67 hand features, ONNX) names the gesture.
+// Everything runs in the browser; no frame leaves the page.
+const tryThese = ["like", "dislike", "peace", "ok", "call", "rock", "palm", "fist", "one", "three", "four", "mute"];
+---
+
+<div class="gdemo" data-gestures>
+  <div class="gstage vf" aria-label="Webcam with the recognised hand gestures">
+    <canvas data-g-canvas width="1280" height="720"></canvas>
+    <video class="gfeed" data-g-video playsinline muted aria-hidden="true"></video>
+    <div class="gveil" data-g-veil>
+      <button class="btn" type="button" data-g-start>Start camera and recognise</button>
+      <label class="gupload mono">
+        or upload a photo of a hand
+        <input type="file" accept="image/*" data-g-upload />
+      </label>
+      <p class="mono" data-g-veil-text>8.5 MB of models, cached after the first visit. Frames stay on your device.</p>
+    </div>
+  </div>
+  <div class="gpanel">
+    <ol class="ghands mono" data-g-hands aria-live="polite">
+      <li class="muted">Show one or two hands to the camera.</li>
+    </ol>
+    <div>
+      <p class="glegend mono">Try these</p>
+      <ul class="gchips mono">
+        {tryThese.map((g) => <li>{g}</li>)}
+      </ul>
+    </div>
+    <dl class="gstats mono">
+      <div><dt>hand landmarks</dt><dd data-g-mp> - </dd></div>
+      <div><dt>gesture classifier</dt><dd data-g-cls> - </dd></div>
+      <div><dt>frames per second</dt><dd data-g-fps> - </dd></div>
+    </dl>
+    <div class="gactions">
+      <button class="gstop mono" type="button" data-g-stop hidden>Stop camera</button>
+      <label class="gstop gupload2 mono">
+        Upload photo
+        <input type="file" accept="image/*" data-g-upload2 />
+      </label>
+    </div>
+    <p class="small muted" data-g-error hidden></p>
+  </div>
+</div>
+
+<style>
+  .gdemo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: clamp(20px, 3vw, 36px);
+    align-items: start;
+  }
+  .gstage {
+    --c: var(--accent);
+    --l: 22px;
+    --w: 2px;
+    position: relative;
+    padding: 8px;
+  }
+  .gstage canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: var(--ar, 16 / 9);
+    max-height: 72vh;
+    object-fit: contain;
+    border-radius: 3px;
+    background: var(--wash);
+    border: 1px solid var(--line);
+  }
+  .gfeed {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .gveil {
+    position: absolute;
+    inset: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    text-align: center;
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(3px);
+    border-radius: 3px;
+    transition: opacity 0.3s;
+  }
+  .gveil p {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.74rem;
+  }
+  .gveil.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .gpanel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .ghands {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+    font-size: 0.78rem;
+    min-height: 92px;
+  }
+  .ghands :global(.hand) {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+  }
+  .ghands :global(.top) {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.95rem;
+    color: var(--ink);
+  }
+  .ghands :global(.alt) {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .ghands :global(.meter) {
+    height: 3px;
+    background: var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .ghands :global(.meter span) {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+  .glegend {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+  .gchips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.72rem;
+  }
+  .gchips li {
+    padding: 3px 7px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--ink-2);
+  }
+  .gstats {
+    margin: 0;
+    border-top: 1px solid var(--line);
+    font-size: 0.74rem;
+  }
+  .gstats div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .gstats dt {
+    color: var(--muted);
+  }
+  .gstats dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .gstop {
+    align-self: start;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+  .gstop:hover {
+    border-color: var(--accent);
+  }
+  .gactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .gupload2 {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .gupload {
+    position: relative;
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .gupload input,
+  .gupload2 input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  @media (max-width: 860px) {
+    .gdemo {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  import { FilesetResolver, HandLandmarker, type NormalizedLandmark } from "@mediapipe/tasks-vision";
+  import * as ort from "onnxruntime-web/wasm";
+  import wasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url";
+  import { handFeatures, softmax } from "../scripts/hand-features";
+
+  ort.env.wasm.wasmPaths = { wasm: wasmUrl };
+  ort.env.logLevel = "error";
+
+  const EDGES = [
+    [0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], [10, 11], [11, 12],
+    [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20], [5, 9], [9, 13], [13, 17],
+  ];
+  const nice = (name: string) => name.replace(/_/g, " ").replace(/(\D)(\d)$/, "$1 $2");
+
+  const root = document.querySelector<HTMLElement>("[data-gestures]")!;
+  const $ = <T extends Element>(s: string) => root.querySelector<T>(s)!;
+  const canvas = $<HTMLCanvasElement>("[data-g-canvas]");
+  const ctx = canvas.getContext("2d")!;
+  const video = $<HTMLVideoElement>("[data-g-video]");
+  const veil = $<HTMLElement>("[data-g-veil]");
+  const veilText = $<HTMLElement>("[data-g-veil-text]");
+  const startBtn = $<HTMLButtonElement>("[data-g-start]");
+  const stopBtn = $<HTMLButtonElement>("[data-g-stop]");
+  const handsList = $<HTMLElement>("[data-g-hands]");
+  const errorEl = $<HTMLElement>("[data-g-error]");
+  const mpOut = $<HTMLElement>("[data-g-mp]");
+  const clsOut = $<HTMLElement>("[data-g-cls]");
+  const fpsOut = $<HTMLElement>("[data-g-fps]");
+
+  let landmarker: HandLandmarker | null = null;
+  let session: ort.InferenceSession | null = null;
+  let classes: string[] = [];
+  let stream: MediaStream | null = null;
+  let running = false;
+  let lastVideoTime = -1;
+  let frames: number[] = [];
+  const smooth = new Map<string, Float32Array>(); // per handedness, exponential moving average
+
+  const accent = () => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff4f1a";
+
+  async function createLandmarker(delegate: "GPU" | "CPU") {
+    const fileset = await FilesetResolver.forVisionTasks("/mediapipe");
+    return HandLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: "/models/gestures/hand_landmarker.task", delegate },
+      runningMode: "VIDEO",
+      numHands: 2,
+    });
+  }
+
+  async function load() {
+    const [lm, sess, meta] = await Promise.all([
+      createLandmarker("GPU").catch(() => createLandmarker("CPU")),
+      ort.InferenceSession.create("/models/gestures/static_gesture.onnx", { executionProviders: ["wasm"] }),
+      fetch("/models/gestures/static_gesture.json").then((r) => r.json()),
+    ]);
+    landmarker = lm;
+    session = sess;
+    classes = meta.classes;
+  }
+
+  async function classify(hands: NormalizedLandmark[][], aspect: number) {
+    const input = new Float32Array(hands.length * 67);
+    hands.forEach((hand, i) => {
+      const points = new Float32Array(42);
+      hand.forEach((p, j) => {
+        points[2 * j] = p.x * aspect; // x / width -> comparable units with y / height
+        points[2 * j + 1] = p.y;
+      });
+      input.set(handFeatures(points), i * 67);
+    });
+    const out = await session!.run({ input: new ort.Tensor("float32", input, [hands.length, 67]) });
+    const logits = out.logits.data as Float32Array;
+    return hands.map((_, i) => softmax(logits, i * classes.length, classes.length));
+  }
+
+  function draw(
+    source: CanvasImageSource,
+    hands: NormalizedLandmark[][],
+    labels: { name: string; p: number }[],
+    mirror: boolean,
+  ) {
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.save();
+    if (mirror) {
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1); // selfie view for the camera
+    }
+    ctx.drawImage(source, 0, 0, w, h);
+    ctx.restore();
+    const color = accent();
+    const line = Math.max(2, w / 400);
+    hands.forEach((hand, i) => {
+      const px = (p: NormalizedLandmark) => (mirror ? 1 - p.x : p.x) * w;
+      const py = (p: NormalizedLandmark) => p.y * h;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = line;
+      ctx.lineCap = "round";
+      for (const [a, b] of EDGES) {
+        ctx.beginPath();
+        ctx.moveTo(px(hand[a]), py(hand[a]));
+        ctx.lineTo(px(hand[b]), py(hand[b]));
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#fff";
+      for (const p of hand) {
+        ctx.beginPath();
+        ctx.arc(px(p), py(p), line * 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const label = labels[i];
+      if (!label) return;
+      const text = `${label.name}  ${Math.round(label.p * 100)} %`;
+      const size = Math.round(w / 38);
+      ctx.font = `600 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      const xs = hand.map(px);
+      const ys = hand.map(py);
+      const x = Math.max(8, Math.min(...xs));
+      const y = Math.max(size + 10, Math.min(...ys) - 12);
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = color;
+      ctx.fillRect(x - 6, y - size - 4, tw + 12, size + 12);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(text, x, y);
+    });
+  }
+
+  function renderList(results: { hand: string; probs: Float32Array }[]) {
+    if (!results.length) {
+      handsList.innerHTML = `<li class="muted">Show one or two hands to the camera.</li>`;
+      return;
+    }
+    handsList.innerHTML = results
+      .map(({ hand, probs }) => {
+        const order = Array.from(probs.keys()).sort((a, b) => probs[b] - probs[a]);
+        const [best, ...rest] = order;
+        const alts = rest
+          .slice(0, 2)
+          .map((k) => `<span>${nice(classes[k])}</span><span>${Math.round(probs[k] * 100)} %</span>`)
+          .join("");
+        return `<li class="hand"><div class="top"><span>${nice(classes[best])}</span><span>${Math.round(probs[best] * 100)} %</span></div>
+          <div class="meter"><span style="width:${(probs[best] * 100).toFixed(0)}%"></span></div>
+          <div class="alt">${alts}</div><div class="alt"><span>${hand} hand</span></div></li>`;
+      })
+      .join("");
+  }
+
+  async function loop() {
+    if (!running) return;
+    if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      const t0 = performance.now();
+      const result = landmarker!.detectForVideo(video, t0);
+      const t1 = performance.now();
+      const hands = result.landmarks ?? [];
+      let labels: { name: string; p: number }[] = [];
+      const listed: { hand: string; probs: Float32Array }[] = [];
+      if (hands.length) {
+        const probs = await classify(hands, video.videoWidth / video.videoHeight);
+        const t2 = performance.now();
+        clsOut.textContent = `${(t2 - t1).toFixed(1)} ms`;
+        labels = probs.map((p, i) => {
+          // the camera image is mirrored on screen, so MediaPipe's handedness is swapped back here
+          const side = result.handedness?.[i]?.[0]?.categoryName === "Left" ? "right" : "left";
+          const prev = smooth.get(side);
+          const avg = prev ? prev.map((v, k) => 0.6 * v + 0.4 * p[k]) : p;
+          smooth.set(side, avg);
+          listed.push({ hand: side, probs: avg });
+          let best = 0;
+          avg.forEach((v, k) => {
+            if (v > avg[best]) best = k;
+          });
+          return { name: nice(classes[best]), p: avg[best] };
+        });
+      } else {
+        smooth.clear();
+      }
+      mpOut.textContent = `${(t1 - t0).toFixed(1)} ms`;
+      draw(video, hands, labels, true);
+      renderList(listed);
+      const now = performance.now();
+      frames = [...frames.filter((t) => now - t < 1000), now];
+      fpsOut.textContent = String(frames.length);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function stop() {
+    running = false;
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+    stopBtn.hidden = true;
+    veil.classList.remove("is-hidden");
+    startBtn.disabled = false;
+    startBtn.textContent = "Start camera and recognise";
+  }
+
+  async function readPhoto(file: File) {
+    errorEl.hidden = true;
+    if (running) stop();
+    veilText.textContent = "Loading models…";
+    try {
+      if (!landmarker) await load();
+      const image = new Image();
+      image.src = URL.createObjectURL(file);
+      await image.decode();
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.style.setProperty("--ar", `${image.naturalWidth} / ${image.naturalHeight}`);
+      await landmarker!.setOptions({ runningMode: "IMAGE" });
+      const t0 = performance.now();
+      const result = landmarker!.detect(image);
+      const t1 = performance.now();
+      const hands = result.landmarks ?? [];
+      const probs = hands.length ? await classify(hands, image.naturalWidth / image.naturalHeight) : [];
+      clsOut.textContent = hands.length ? `${(performance.now() - t1).toFixed(1)} ms` : " - ";
+      mpOut.textContent = `${(t1 - t0).toFixed(1)} ms`;
+      fpsOut.textContent = " - ";
+      const listed = probs.map((p, i) => ({
+        hand: result.handedness?.[i]?.[0]?.categoryName === "Left" ? "right" : "left", // MediaPipe assumes a mirrored image
+        probs: p,
+      }));
+      const labels = probs.map((p) => {
+        let best = 0;
+        p.forEach((v, k) => {
+          if (v > p[best]) best = k;
+        });
+        return { name: nice(classes[best]), p: p[best] };
+      });
+      draw(image, hands, labels, false);
+      renderList(listed);
+      if (!hands.length) handsList.innerHTML = `<li class="muted">No hand found in this photo.</li>`;
+      veil.classList.add("is-hidden");
+      URL.revokeObjectURL(image.src);
+    } catch (error) {
+      errorEl.hidden = false;
+      errorEl.textContent = `Could not read the photo: ${(error as Error).message}`;
+    }
+  }
+  for (const input of root.querySelectorAll<HTMLInputElement>("[data-g-upload], [data-g-upload2]")) {
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (file) void readPhoto(file);
+      input.value = "";
+    });
+  }
+
+  startBtn.addEventListener("click", async () => {
+    errorEl.hidden = true;
+    startBtn.disabled = true;
+    startBtn.textContent = "Loading models…";
+    try {
+      const camera = navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      camera.catch(() => {}); // handled below, after the models have loaded
+      if (!landmarker) await load();
+      await landmarker!.setOptions({ runningMode: "VIDEO" });
+      stream = await camera;
+      video.srcObject = stream;
+      await video.play();
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      canvas.style.setProperty("--ar", `${canvas.width} / ${canvas.height}`);
+      running = true;
+      veil.classList.add("is-hidden");
+      stopBtn.hidden = false;
+      requestAnimationFrame(loop);
+    } catch (error) {
+      stop();
+      errorEl.hidden = false;
+      errorEl.textContent =
+        (error as Error).name === "NotAllowedError"
+          ? "The camera was not allowed. The demo needs it, and the frames never leave your device."
+          : `Could not start: ${(error as Error).message}`;
+      veilText.textContent = "Camera or model could not start.";
+    }
+  });
+  stopBtn.addEventListener("click", stop);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && running) stop();
+  });
+</script>

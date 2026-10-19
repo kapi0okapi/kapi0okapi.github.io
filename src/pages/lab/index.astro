@@ -1,0 +1,1066 @@
+---
+import Base from "../../layouts/Base.astro";
+import GestureDemo from "../../components/GestureDemo.astro";
+import DepthDemo from "../../components/DepthDemo.astro";
+import AgeDemo from "../../components/AgeDemo.astro";
+import { Image } from "astro:assets";
+import labDetection from "../../assets/lab-detection.jpg";
+import labGestures from "../../assets/lab-gestures.jpg";
+import labDepth from "../../assets/lab-depth.jpg";
+import labAge from "../../assets/lab-age.jpg";
+import { breadcrumbs, person, PERSON_ID } from "../../data/schema";
+import { SITE } from "../../data/site";
+
+const samples = [
+  { src: "/lab/kitti-1.jpg", label: "Street 1" },
+  { src: "/lab/kitti-2.jpg", label: "Street 2" },
+  { src: "/lab/kitti-3.jpg", label: "Street 3" },
+];
+
+// The demos on this page, in order: the overview cards and the sticky menu are built from this list.
+const demos = [
+  {
+    id: "detect",
+    short: "Objects",
+    title: "Object detection",
+    text: "YOLO26n finds cars, people and 78 other classes in a street photo, your image or the webcam.",
+    meta: "3.4 MB · photo or webcam",
+    image: labDetection,
+    alt: "YOLO26n detections drawn on a street scene from KITTI",
+  },
+  {
+    id: "gestures",
+    short: "Gestures",
+    title: "Hand gestures",
+    text: "21 points on each hand and my classifier, which names one of 34 gestures live.",
+    meta: "8.5 MB · webcam or photo",
+    image: labGestures,
+    alt: "The 21-point skeleton of a hand making the peace sign, labelled peace 93 %",
+  },
+  {
+    id: "depth",
+    short: "Distance",
+    title: "Distance in metres",
+    text: "My fine-tuned depth model measures any point of a street photo from one camera.",
+    meta: "12.5 MB · photo",
+    image: labDepth,
+    alt: "A street photo coloured by distance, with a car marked at 8.2 m",
+  },
+  {
+    id: "age",
+    short: "Age",
+    title: "Age from a face",
+    text: "Face landmarks, the alignment used in training and my DINOv3 age model with its full distribution.",
+    meta: "32 MB · webcam or photo",
+    image: labAge,
+    alt: "A face mesh with the five alignment points and a probability distribution over age",
+  },
+];
+
+// Projects I want to build next: each small enough for a week or two of evenings.
+const ideas = [
+  {
+    title: "Photo to 3D in the browser",
+    text: "Depth Anything V2 exported to ONNX and run here, next to the detector: drop in a photo and orbit it as a point cloud. The WebGL viewer already exists - it draws the background of the home page.",
+    stack: ["Depth Anything V2", "ONNX Runtime Web", "WebGL"],
+    time: "3-4 days",
+  },
+  {
+    title: "Find anything in road photos by text",
+    text: "Open-vocabulary detection on Statens vegvesen's road photos: type \u201cdamaged sign\u201d or \u201cconstruction barrier\u201d and get boxes, without training a class for it. Scored against hand-labelled photos from the E6.",
+    stack: ["YOLOE", "Grounding DINO", "Vegbilder"],
+    time: "1 week",
+  },
+  {
+    title: "Chessboard photo to Lichess link",
+    text: "Find the board, warp it to a square, classify 64 squares and output the position as FEN with a link to analyse it. Rendered boards for pre-training, my own photos for the test set.",
+    stack: ["OpenCV", "YOLO26", "synthetic data"],
+    time: "1 week",
+  },
+  {
+    title: "Ski-jump flight analysis",
+    text: "Pose estimation on video from Granåsen in Trondheim: take-off angle, body-ski angle through the flight and landing, plotted per jump. A lesson in tracking small, fast people against snow.",
+    stack: ["YOLO26-pose", "tracking", "camera calibration"],
+    time: "1-2 weeks",
+  },
+  {
+    title: "A Gaussian-splat of Nidarosdomen",
+    text: "Phone video around the cathedral, COLMAP for the poses, 3D Gaussian splatting for the scene, and a viewer embedded on this site. Then the same with the KITTI LiDAR as a depth prior.",
+    stack: ["COLMAP", "gsplat", "WebGL"],
+    time: "1 week",
+  },
+  {
+    title: "Rep counter from a webcam",
+    text: "Keypoints in the browser, a small state machine per exercise and honest counting of squats and push-ups - with the failure cases that make it hard (partial reps, side views).",
+    stack: ["YOLO26-pose", "ONNX Runtime Web"],
+    time: "3-4 days",
+  },
+];
+
+const app = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "YOLO26 object detection in the browser",
+  url: `${SITE.url}/lab/`,
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Any (modern web browser)",
+  browserRequirements: "WebAssembly",
+  description: "Real-time object detection with YOLO26n (INT8 or FP32) running locally in the browser with ONNX Runtime Web.",
+  author: { "@id": PERSON_ID },
+};
+---
+
+<Base
+  title="Lab: computer vision in your browser - Kacper Pawlowski"
+  description="Four of my models running locally in your browser: object detection, live hand gestures, distance in metres from one photo and age from a face. Nothing is uploaded."
+  image="/og/lab.png"
+  jsonLd={[
+    person(),
+    app,
+    breadcrumbs([
+      { name: "Home", path: "/" },
+      { name: "Lab", path: "/lab/" },
+    ]),
+  ]}
+>
+  <header class="wrap page-head">
+    <h1>Computer vision in your browser</h1>
+    <p class="lede">
+      Four of my models running on your device. Pick a demo, use the sample photos, drop in your own image or turn on
+      the camera. No image ever leaves the page.
+    </p>
+  </header>
+
+  <nav class="wrap lab-index" aria-label="Demos in the lab">
+    <ol>
+      {
+        demos.map((d) => (
+          <li>
+            <a class="index-card vf" href={`#${d.id}`}>
+              <Image src={d.image} alt={d.alt} widths={[300, 480, 748]} sizes="(max-width: 860px) 50vw, 290px" />
+              <span class="index-copy">
+                <strong>{d.title}</strong>
+                <span class="muted index-text">{d.text}</span>
+                <span class="mono index-meta">{d.meta}</span>
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </nav>
+
+  <nav class="lab-nav" aria-label="Jump to a demo" data-lab-nav>
+    <div class="wrap lab-nav-inner">
+      {
+        demos.map((d) => (
+          <a class="mono" href={`#${d.id}`} data-nav={d.id}>
+            {d.short}
+          </a>
+        ))
+      }
+      <a class="mono" href="#how" data-nav="how">How it works</a>
+      <a class="mono" href="#next" data-nav="next">Next</a>
+    </div>
+  </nav>
+
+  <section class="section demo-section" id="detect" aria-labelledby="detect-title">
+    <div class="wrap">
+    <div class="section-head">
+      <div>
+        <h2 id="detect-title">What is in the picture?</h2>
+      </div>
+      <p class="muted aside-note">
+        YOLO26n, compressed to INT8 in my edge-optimization project, finds 80 kinds of objects in one pass.
+      </p>
+    </div>
+    <div class="demo" data-demo>
+      <div
+        class="stage vf"
+        data-stage
+        tabindex="0"
+        aria-label="Detection output. Drop an image here."
+      >
+        <canvas data-canvas width="1242" height="375"></canvas>
+        <video class="feed" data-video playsinline muted aria-hidden="true"></video>
+        <div class="veil" data-veil>
+          <button class="btn" type="button" data-start>Load model and detect</button>
+          <p class="mono" data-veil-text>3.4 MB model + WebAssembly runtime, cached after the first visit</p>
+          <div class="bar" aria-hidden="true"><span data-bar></span></div>
+        </div>
+        <p class="drop mono" aria-hidden="true">drop image</p>
+      </div>
+
+      <div class="panel">
+        <fieldset>
+          <legend class="mono">Source</legend>
+          <div class="seg" role="group">
+            {
+              samples.map((s, i) => (
+                <button type="button" class="opt mono" data-sample={s.src} aria-pressed={i === 0 ? "true" : "false"}>
+                  {s.label}
+                </button>
+              ))
+            }
+            <label class="opt mono upload">
+              Upload
+              <input type="file" accept="image/*" data-upload />
+            </label>
+            <button type="button" class="opt mono" data-webcam aria-pressed="false">Webcam</button>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend class="mono">Model</legend>
+          <div class="seg" role="radiogroup">
+            <label class="opt mono"><input type="radio" name="model" value="int8" checked /> INT8 · 3.4 MB</label>
+            <label class="opt mono"><input type="radio" name="model" value="fp32" /> FP32 · 9.9 MB</label>
+          </div>
+          <p class="hint muted">
+            INT8 is three times smaller to download. Whether it is also faster depends on your CPU - compare them here.
+          </p>
+        </fieldset>
+
+        <label class="threshold">
+          <span class="mono">Confidence ≥ <output data-threshold-out>0.35</output></span>
+          <input type="range" min="0.1" max="0.9" step="0.05" value="0.35" data-threshold />
+        </label>
+
+        <dl class="stats mono">
+          <div><dt>runtime</dt><dd data-runtime>ONNX Runtime Web · WASM</dd></div>
+          <div><dt>model load</dt><dd data-load> - </dd></div>
+          <div><dt>inference</dt><dd data-ms> - </dd></div>
+          <div><dt>objects</dt><dd data-count> - </dd></div>
+        </dl>
+        <ul class="found mono" data-found aria-live="polite"></ul>
+        <p class="small muted" data-error hidden></p>
+      </div>
+    </div>
+    <p class="credit mono muted">
+      Street scenes: KITTI (Geiger et al., CC BY-NC-SA 3.0). Model: Ultralytics YOLO26n (AGPL-3.0), INT8 calibration from my{" "}
+      <a href="/work/edge-optimization/">edge-optimization</a> project.
+    </p>
+    </div>
+  </section>
+
+  <section class="section demo-section" id="gestures" aria-labelledby="gestures-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="gestures-title">Hand gestures from your webcam</h2>
+        </div>
+        <p class="muted aside-note">
+          MediaPipe finds 21 points on each hand; my classifier, trained on HaGRID, names one of 34 gestures from them.
+        </p>
+      </div>
+      <GestureDemo />
+      <p class="credit mono muted">
+        Hand landmarks: Google MediaPipe (Apache-2.0). Gesture classifier: my{" "}
+        <a href="/work/hand-gesture-recognition/">hand-gesture-recognition</a> project, 95.8 % on people it never saw.
+      </p>
+    </div>
+  </section>
+
+  <section class="section demo-section" id="depth" aria-labelledby="depth-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="depth-title">How far away is it?</h2>
+        </div>
+        <p class="muted aside-note">
+          My YOLO26s-depth, fine-tuned on KITTI, gives depth in metres from one photo: 7.5 % average error, ahead of
+          the large metric models I compared it with.
+        </p>
+      </div>
+      <DepthDemo />
+      <p class="credit mono muted">
+        Street scenes: KITTI (Geiger et al., CC BY-NC-SA 3.0). Model: my{" "}
+        <a href="/work/monocular-depth/">monocular-depth</a> project, INT8 weights, within 0.5 % of the full model.
+      </p>
+    </div>
+  </section>
+
+  <section class="section demo-section" id="age" aria-labelledby="age-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="age-title">How old do you look?</h2>
+        </div>
+        <p class="muted aside-note">
+          The face is aligned exactly as in training, then my ConvNeXt with DINOv3 weights gives a probability for
+          every age from 0 to 100: 4.25 years average error on UTKFace.
+        </p>
+      </div>
+      <AgeDemo />
+      <p class="credit mono muted">
+        Face landmarks: Google MediaPipe (Apache-2.0). Age model: my{" "}
+        <a href="/work/age-estimation/">age-estimation</a> project, INT8 weights, 4.26 years on the same test set.
+      </p>
+    </div>
+  </section>
+
+  <section class="section how" id="how" aria-labelledby="how-title">
+    <div class="wrap how-grid">
+      <div>
+        <h2 id="how-title">How the detector works</h2>
+      </div>
+      <ol class="how-list">
+        <li>
+          <h3>Letterbox to 640 × 640</h3>
+          <p>
+            The image is scaled to fit 640 pixels and padded with grey (114, 114, 114), as in training. Pixels go into a
+            float tensor in channel-first order.
+          </p>
+        </li>
+        <li>
+          <h3>Run YOLO26n in WebAssembly</h3>
+          <p>
+            ONNX Runtime Web executes the model on the CPU with SIMD. The INT8 model keeps the class branch and the end of
+            its detection head in float, which keeps 97 % of the float accuracy at a third of the size, as described in
+            <a href="/writing/detector-on-edge-devices/">this article</a>.
+          </p>
+        </li>
+        <li>
+          <h3>Read the boxes - no NMS</h3>
+          <p>
+            YOLO26 is end-to-end: its output is already a list of 300 final boxes as [x1, y1, x2, y2, score, class]. There
+            is no non-maximum suppression step to port to JavaScript.
+          </p>
+        </li>
+        <li>
+          <h3>Undo the letterbox and draw</h3>
+          <p>
+            Subtract the padding, divide by the scale, clip to the image. The confidence slider only filters - it does not
+            run the model again.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="next" aria-labelledby="next-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="next-title">What I am building next</h2>
+        </div>
+        <p class="muted aside-note">Small projects, each a week or two of evenings. Suggestions welcome.</p>
+      </div>
+      <ol class="ideas">
+        {
+          ideas.map((idea) => (
+            <li class="idea vf">
+              <p class="mono idea-meta">{idea.time}</p>
+              <h3>{idea.title}</h3>
+              <p>{idea.text}</p>
+              <ul class="chips">
+                {idea.stack.map((s) => (
+                  <li class="chip">{s}</li>
+                ))}
+              </ul>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .page-head {
+    padding-block: clamp(48px, 8vw, 96px) clamp(24px, 3vw, 36px);
+  }
+  :global(html) {
+    scroll-padding-top: calc(var(--header-h) + 64px);
+  }
+  .lab-index ol {
+    list-style: none;
+    margin: 0 0 clamp(28px, 4vw, 44px);
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(14px, 2vw, 24px);
+  }
+  .index-card {
+    --c: var(--line-strong, var(--line));
+    --l: 16px;
+    --w: 2px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 8px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .index-card:hover {
+    --c: var(--accent);
+    color: var(--ink);
+  }
+  .index-card :global(img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2 / 1;
+    object-fit: cover;
+    border-radius: 2px;
+    border: 1px solid var(--line);
+  }
+  .index-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 4px 4px;
+    flex: 1;
+  }
+  .index-copy strong {
+    font-size: 1.02rem;
+    font-weight: 600;
+  }
+  .index-text {
+    font-size: 0.86rem;
+    line-height: 1.4;
+  }
+  .index-meta {
+    margin-top: auto;
+    padding-top: 8px;
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+  .lab-nav {
+    position: sticky;
+    top: var(--header-h);
+    z-index: 40;
+    background: rgb(255 255 255 / 0.9);
+    backdrop-filter: saturate(1.4) blur(10px);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-block: 1px solid var(--line);
+  }
+  .lab-nav-inner {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-block: 8px;
+  }
+  .lab-nav-inner::-webkit-scrollbar {
+    display: none;
+  }
+  .lab-nav a {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 16px;
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .lab-nav a span {
+    color: var(--muted);
+  }
+  .lab-nav a:hover {
+    color: var(--ink);
+    background: var(--wash);
+  }
+  .lab-nav a[aria-current="true"] {
+    color: #fff;
+    background: var(--ink);
+  }
+  .lab-nav a[aria-current="true"] span {
+    color: rgb(255 255 255 / 0.7);
+  }
+  .demo-section {
+    padding-block: clamp(48px, 7vw, 88px);
+  }
+  .demo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: clamp(20px, 3vw, 36px);
+    align-items: start;
+  }
+  .stage {
+    --c: var(--accent);
+    --l: 22px;
+    --w: 2px;
+    position: relative;
+    padding: 8px;
+    outline-offset: 4px;
+  }
+  .stage canvas {
+    width: 100%;
+    height: auto;
+    border-radius: 3px;
+    background: var(--wash);
+    border: 1px solid var(--line);
+  }
+  .feed {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .veil {
+    position: absolute;
+    inset: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    text-align: center;
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(3px);
+    border-radius: 3px;
+    transition: opacity 0.3s;
+  }
+  .veil p {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.74rem;
+  }
+  .veil.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .bar {
+    width: min(260px, 70%);
+    height: 3px;
+    background: var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    transition: width 0.15s;
+  }
+  .drop {
+    position: absolute;
+    inset: 8px;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    border: 2px dashed var(--accent);
+    border-radius: 3px;
+    background: rgb(255 241 235 / 0.85);
+    color: var(--accent-ink);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  .stage.is-over .drop {
+    opacity: 1;
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  legend,
+  .threshold > span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+  .seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .opt {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+  .opt:hover {
+    border-color: var(--accent);
+  }
+  .opt[aria-pressed="true"],
+  .opt:has(input:checked) {
+    border-color: var(--ink);
+    color: var(--ink);
+    background: var(--wash);
+  }
+  .opt input[type="radio"] {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+  .upload input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .upload:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .hint {
+    margin: 8px 0 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  .threshold input {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .stats {
+    margin: 0;
+    border-top: 1px solid var(--line);
+    font-size: 0.74rem;
+  }
+  .stats div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .stats dt {
+    color: var(--muted);
+  }
+  .stats dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .found {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.72rem;
+  }
+  .found li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 7px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+  .found i {
+    width: 8px;
+    height: 8px;
+    border-radius: 1px;
+  }
+  .small {
+    font-size: 0.86rem;
+    margin: 0;
+  }
+  .credit {
+    margin: 14px 0 0;
+    font-size: 0.7rem;
+  }
+  .how {
+    margin-top: clamp(56px, 8vw, 96px);
+    background: var(--wash);
+  }
+  .how-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: clamp(32px, 6vw, 96px);
+  }
+  .how-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: how;
+  }
+  .how-list li {
+    counter-increment: how;
+    position: relative;
+    padding: 0 0 26px;
+  }
+  .how-list h3 {
+    font-size: 1.08rem;
+    margin-bottom: 6px;
+  }
+  .how-list p {
+    color: var(--ink-2);
+    font-size: 0.97rem;
+    margin: 0;
+  }
+  .aside-note {
+    max-width: 36ch;
+    margin: 0;
+  }
+  .ideas {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .idea {
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    border-radius: 2px;
+  }
+  .idea:hover {
+    --c: var(--accent);
+  }
+  .idea-meta {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 0 18px;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .idea h3 {
+    font-size: 1.12rem;
+    margin-bottom: 8px;
+  }
+  .idea p {
+    color: var(--ink-2);
+    font-size: 0.94rem;
+  }
+  .idea .chips {
+    list-style: none;
+    padding: 0;
+    margin: auto 0 0;
+  }
+  @media (max-width: 980px) {
+    .demo,
+    .how-grid {
+      grid-template-columns: 1fr;
+    }
+    .lab-index ol {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .ideas {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .ideas {
+      grid-template-columns: 1fr;
+    }
+    .index-text {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import { COCO, Detector, MODELS, colourFor, drawDetections, type Detection, type ModelKind } from "../../scripts/detector";
+
+  const root = document.querySelector<HTMLElement>("[data-demo]")!;
+  const $ = <T extends Element>(sel: string) => root.querySelector<T>(sel)!;
+  const canvas = $<HTMLCanvasElement>("[data-canvas]");
+  const ctx = canvas.getContext("2d")!;
+  const video = $<HTMLVideoElement>("[data-video]");
+  const stage = $<HTMLElement>("[data-stage]");
+  const veil = $<HTMLElement>("[data-veil]");
+  const veilText = $<HTMLElement>("[data-veil-text]");
+  const startButton = $<HTMLButtonElement>("[data-start]");
+  const bar = $<HTMLElement>("[data-bar]");
+  const threshold = $<HTMLInputElement>("[data-threshold]");
+  const thresholdOut = $<HTMLOutputElement>("[data-threshold-out]");
+  const out = {
+    load: $<HTMLElement>("[data-load]"),
+    ms: $<HTMLElement>("[data-ms]"),
+    count: $<HTMLElement>("[data-count]"),
+    found: $<HTMLElement>("[data-found]"),
+    error: $<HTMLElement>("[data-error]"),
+  };
+  const sampleButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-sample]")];
+  const webcamButton = $<HTMLButtonElement>("[data-webcam]");
+
+  const detector = new Detector();
+  let image: CanvasImageSource | null = null;
+  let imageSize = { w: 1242, h: 375 };
+  let last: Detection[] = [];
+  let ready = false;
+  let busy = false;
+  let stream: MediaStream | null = null;
+  const timings: number[] = [];
+
+  const kind = () => (root.querySelector<HTMLInputElement>("input[name=model]:checked")?.value ?? "int8") as ModelKind;
+
+  // frames and decoded images are ImageBitmaps: free the previous one when it is replaced
+  function setImage(next: CanvasImageSource, size: { w: number; h: number }) {
+    if (image instanceof ImageBitmap && image !== next) image.close();
+    image = next;
+    imageSize = size;
+  }
+
+  function setPressed(active: Element | null) {
+    for (const b of [...sampleButtons, webcamButton]) b.setAttribute("aria-pressed", String(b === active));
+  }
+
+  function fail(message: string) {
+    out.error.hidden = false;
+    out.error.textContent = message;
+  }
+
+  function render() {
+    if (!image) return;
+    if (canvas.width !== imageSize.w || canvas.height !== imageSize.h) {
+      canvas.width = imageSize.w;
+      canvas.height = imageSize.h;
+    }
+    ctx.drawImage(image, 0, 0, imageSize.w, imageSize.h);
+    const min = Number(threshold.value);
+    const shown = last.filter((d) => d.score >= min);
+    drawDetections(ctx, shown, Math.max(1, imageSize.w / 1100));
+    out.count.textContent = ready ? String(shown.length) : " - ";
+    const counts = new Map<number, number>();
+    for (const d of shown) counts.set(d.cls, (counts.get(d.cls) ?? 0) + 1);
+    out.found.replaceChildren(
+      ...[...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([cls, n]) => {
+          const li = document.createElement("li");
+          const swatch = document.createElement("i");
+          swatch.style.background = colourFor(cls);
+          li.append(swatch, `${COCO[cls]} × ${n}`);
+          return li;
+        }),
+    );
+  }
+
+  function recordTiming(ms: number) {
+    timings.push(ms);
+    if (timings.length > 15) timings.shift();
+    const sorted = [...timings].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    out.ms.textContent = `${Math.round(median)} ms · ${MODELS[detector.kind!].label}`;
+  }
+
+  async function detectStill() {
+    if (!ready || !image) return;
+    while (busy) await new Promise((resolve) => setTimeout(resolve, 30));
+    busy = true;
+    try {
+      const result = await detector.detect(image, imageSize.w, imageSize.h, 0.1);
+      last = result.detections;
+      recordTiming(result.ms);
+    } catch (e) {
+      fail(`Inference failed: ${(e as Error).message}`);
+    } finally {
+      busy = false;
+    }
+    render();
+  }
+
+  async function loadImage(src: string | Blob) {
+    stopWebcam();
+    const blob = typeof src === "string" ? await (await fetch(src)).blob() : src;
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    setImage(bitmap, { w: Math.round(bitmap.width * scale), h: Math.round(bitmap.height * scale) });
+    last = [];
+    render();
+    await detectStill();
+  }
+
+  async function loadModel() {
+    out.error.hidden = true;
+    veil.classList.remove("is-hidden");
+    startButton.hidden = true;
+    veilText.textContent = `Loading YOLO26n ${MODELS[kind()].label} (${MODELS[kind()].size})…`;
+    bar.style.width = "0";
+    try {
+      const ms = await detector.load(kind(), (f) => (bar.style.width = `${Math.round(f * 100)}%`));
+      out.load.textContent = `${(ms / 1000).toFixed(1)} s`;
+      ready = true;
+      timings.length = 0;
+      veil.classList.add("is-hidden");
+    } catch (e) {
+      startButton.hidden = false;
+      veilText.textContent = "The model could not be loaded in this browser.";
+      fail((e as Error).message);
+      return;
+    }
+    if (stream) return;
+    await detectStill();
+  }
+
+  // --- webcam --------------------------------------------------------------------------
+  async function startWebcam() {
+    if (!navigator.mediaDevices?.getUserMedia) return fail("This browser has no camera access.");
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } }, audio: false });
+    } catch {
+      return fail("Camera permission was not granted.");
+    }
+    out.error.hidden = true;
+    video.srcObject = stream;
+    await video.play();
+    setPressed(webcamButton);
+    if (!ready) await loadModel();
+    loop();
+  }
+
+  function stopWebcam() {
+    if (!stream) return;
+    for (const track of stream.getTracks()) track.stop();
+    stream = null;
+    video.srcObject = null;
+    webcamButton.setAttribute("aria-pressed", "false");
+  }
+
+  async function loop() {
+    if (!stream) return;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (w && h && ready && !busy) {
+      busy = true;
+      // freeze the frame the boxes belong to
+      const frame = await createImageBitmap(video);
+      try {
+        const result = await detector.detect(frame, w, h, 0.1);
+        if (!stream) {
+          // the camera was switched off while this frame was being processed
+          frame.close();
+          return;
+        }
+        setImage(frame, { w, h });
+        last = result.detections;
+        recordTiming(result.ms);
+        render();
+      } catch (e) {
+        fail(`Inference failed: ${(e as Error).message}`);
+        stopWebcam();
+      } finally {
+        busy = false;
+      }
+    }
+    if (stream && !document.hidden) requestAnimationFrame(loop);
+    else if (stream) document.addEventListener("visibilitychange", () => loop(), { once: true });
+  }
+
+  // --- wiring --------------------------------------------------------------------------
+  startButton.addEventListener("click", () => void loadModel());
+  for (const button of sampleButtons) {
+    button.addEventListener("click", () => {
+      setPressed(button);
+      void loadImage(button.dataset.sample!);
+    });
+  }
+  $<HTMLInputElement>("[data-upload]").addEventListener("change", (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      setPressed(null);
+      void loadImage(file);
+    }
+  });
+  webcamButton.addEventListener("click", () => {
+    if (stream) {
+      stopWebcam();
+      setPressed(sampleButtons[0]);
+      void loadImage(sampleButtons[0].dataset.sample!);
+    } else void startWebcam();
+  });
+  for (const radio of root.querySelectorAll<HTMLInputElement>("input[name=model]")) {
+    radio.addEventListener("change", () => {
+      if (ready || detector.kind) void loadModel();
+    });
+  }
+  threshold.addEventListener("input", () => {
+    thresholdOut.textContent = Number(threshold.value).toFixed(2);
+    render();
+  });
+
+  stage.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    stage.classList.add("is-over");
+  });
+  stage.addEventListener("dragleave", () => stage.classList.remove("is-over"));
+  stage.addEventListener("drop", (e) => {
+    e.preventDefault();
+    stage.classList.remove("is-over");
+    const file = e.dataTransfer?.files?.[0];
+    if (file?.type.startsWith("image/")) {
+      setPressed(null);
+      void loadImage(file);
+    }
+  });
+  window.addEventListener("paste", (e) => {
+    const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
+    if (file) {
+      setPressed(null);
+      void loadImage(file);
+    }
+  });
+
+  // Show the first street scene right away; load the model once the demo is on screen,
+  // unless the visitor has asked to save data.
+  void loadImage(sampleButtons[0].dataset.sample!);
+  const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+  if (!saveData) {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      void loadModel();
+    }, { threshold: 0.4 });
+    observer.observe(stage);
+  }
+</script>
+
+<script>
+  // Highlight the demo in view in the sticky menu, and keep the active link visible on narrow screens.
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-lab-nav] a[data-nav]"));
+  const sections = links
+    .map((a) => document.getElementById(a.dataset.nav!))
+    .filter((s): s is HTMLElement => Boolean(s));
+  const setActive = (id: string | null) => {
+    for (const a of links) {
+      const on = a.dataset.nav === id;
+      if (on && a.getAttribute("aria-current") !== "true") {
+        a.parentElement!.scrollTo({ left: a.offsetLeft - 16, behavior: "smooth" });
+      }
+      if (on) a.setAttribute("aria-current", "true");
+      else a.removeAttribute("aria-current");
+    }
+  };
+  // the active demo is the last one whose top has passed a line just below the menu
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    const line = 160;
+    let current: string | null = null;
+    for (const s of sections) if (s.getBoundingClientRect().top <= line) current = s.id;
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+      current = sections[sections.length - 1]?.id ?? current;
+    }
+    setActive(current);
+  };
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (!ticking) requestAnimationFrame(update);
+      ticking = true;
+    },
+    { passive: true },
+  );
+  update();
+</script>

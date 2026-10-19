@@ -1,0 +1,90 @@
+---
+import { SITE } from "../data/site";
+import { NAV, UI, type Lang } from "../lib/i18n";
+
+interface Props {
+  lang?: Lang;
+}
+const { lang = "en" } = Astro.props;
+const year = new Date().getFullYear();
+const t = UI[lang];
+---
+
+<footer class="site-footer" id="contact">
+  <div class="wrap">
+    <div class="cta">
+      <p class="eyebrow">{t.contact}</p>
+      <h2>{t.cta}</h2>
+      <div class="actions">
+        <a class="btn" href={`mailto:${SITE.email}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"
+            ><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg
+          >
+          {SITE.email}
+        </a>
+        <a class="btn btn--ghost" href={SITE.linkedin} rel="me noopener" target="_blank">LinkedIn</a>
+        <a class="btn btn--ghost" href={SITE.github} rel="me noopener" target="_blank">GitHub</a>
+      </div>
+    </div>
+    <div class="base">
+      <p class="mono muted">© {year} {SITE.name} · {t.location}</p>
+      <ul class="mono">
+        {
+          NAV[lang].map((item) => (
+            <li>
+              <a href={item.href}>{item.label}</a>
+            </li>
+          ))
+        }
+        <li><a href="/rss.xml">RSS</a></li>
+        <li><a href="/credits/">{t.credits}</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--line);
+    background: var(--wash);
+    padding-top: clamp(56px, 8vw, 96px);
+  }
+  .cta h2 {
+    max-width: 20ch;
+    font-size: clamp(1.8rem, 4vw, 3rem);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .base {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: clamp(56px, 8vw, 96px);
+    padding-block: 24px;
+    border-top: 1px solid var(--line);
+  }
+  .base p {
+    margin: 0;
+  }
+  .base ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .base a {
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+  .base a:hover {
+    color: var(--accent-ink);
+  }
+</style>

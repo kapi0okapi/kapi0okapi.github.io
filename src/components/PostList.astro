@@ -1,0 +1,116 @@
+---
+import type { Post } from "../lib/content";
+import { formatDate, isoDate, langOf, postUrl, readingMinutes } from "../lib/content";
+
+interface Props {
+  posts: Post[];
+  headingLevel?: 2 | 3;
+}
+const { posts, headingLevel = 3 } = Astro.props;
+const Heading = `h${headingLevel}` as "h2" | "h3";
+---
+
+<ol class="posts">
+  {
+    posts.map((post) => (
+      <li class="post">
+        <p class="date mono">
+          <span class="topic">{post.data.tags[0]}</span>
+          <time datetime={isoDate(post.data.published)}>{formatDate(post.data.published, langOf(post))}</time>
+        </p>
+        <div class="main">
+          <Heading class="title">
+            <a href={postUrl(post)} hreflang={langOf(post)}>
+              {post.data.title}
+            </a>
+          </Heading>
+          <p class="desc">{post.data.description}</p>
+        </div>
+        <p class="side mono">
+          <span>{readingMinutes(post.body)} min</span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </p>
+      </li>
+    ))
+  }
+</ol>
+
+<style>
+  .posts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--ink);
+  }
+  .post {
+    position: relative;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) 90px;
+    gap: 24px;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--line);
+    transition: background 0.2s;
+  }
+  .post:hover {
+    background: linear-gradient(90deg, var(--accent-wash), transparent 70%);
+  }
+  .date,
+  .side {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+  .date {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .topic {
+    color: var(--ink);
+  }
+  .side {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+  .arrow {
+    transition: transform 0.2s, color 0.2s;
+  }
+  .post:hover .arrow {
+    color: var(--accent);
+    transform: translateX(4px);
+  }
+  .title {
+    font-size: 1.22rem;
+    margin: 0 0 6px;
+  }
+  .title a {
+    text-decoration: none;
+  }
+  .title a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .desc {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.97rem;
+    max-width: 68ch;
+  }
+  @media (max-width: 720px) {
+    .post {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .date {
+      flex-direction: row;
+      gap: 10px;
+    }
+    .side {
+      display: none;
+    }
+  }
+</style>

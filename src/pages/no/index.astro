@@ -1,0 +1,106 @@
+---
+import Base from "../../layouts/Base.astro";
+import Hero from "../../components/Hero.astro";
+import ProjectCard from "../../components/ProjectCard.astro";
+import PostList from "../../components/PostList.astro";
+import { getPosts, getProjects } from "../../lib/content";
+import { person, website } from "../../data/schema";
+import { SITE } from "../../data/site";
+
+const projects = await getProjects();
+const featured = projects.filter((p) => p.data.featured);
+const norwegian = (await getPosts("nb")).slice(0, 4);
+---
+
+<Base
+  title="Kacper Pawlowski - AI-ingeniør i Trondheim · maskinsyn og LiDAR"
+  description="Kacper Pawlowski er AI-ingeniør og masterstudent ved NTNU i Trondheim. Maskinsyn, LiDAR, sensorfusjon og KI-modeller fra rådata til drift."
+  lang="nb"
+  alternates={[
+    { lang: "en", href: "/" },
+    { lang: "nb", href: "/no/" },
+  ]}
+  type="profile"
+  jsonLd={[person(), website()]}
+>
+  <Hero lang="nb">
+    <h1>
+      Kacper Pawlowski
+      <span class="h1-role">AI-ingeniør innen maskinsyn og 3D-persepsjon</span>
+    </h1>
+    <p class="lede">
+      Jeg bygger systemer som ser: deteksjon, segmentering og dybde fra kamera, odometri og kart fra LiDAR - fra rådata
+      til en modell som kjører der den trengs.
+    </p>
+    <div class="actions">
+      <a class="btn" href="#prosjekter">Se prosjektene <span aria-hidden="true">→</span></a>
+      <a class="btn btn--ghost" href="#contact">Ta kontakt</a>
+    </div>
+  </Hero>
+
+  <section class="section" aria-labelledby="om">
+    <div class="wrap about">
+      <div>
+        <h2 id="om">AI-ingeniør med hendene i dataene</h2>
+      </div>
+      <div class="about-text">
+        <p>
+          Jeg jobber som AI-ingeniør i Lighthouse Consulting, med maskinsyn for prediktivt vedlikehold, og tar
+          masterstudier ved NTNU i datateknologi med fordypning i kunstig intelligens og i industriell matematikk.
+        </p>
+        <p>
+          Prosjektene mine handler mye om norsk vei: rekkverk i NVDB sammenlignet med hva en modell ser på vegbildene fra
+          Statens vegvesen, en plattform med PostGIS og kart for veiinspeksjon, og LiDAR- og kamerabasert odometri. Alt er
+          åpen kildekode, med tall målt mot en uavhengig fasit.
+        </p>
+        <p>
+          Jeg snakker norsk, engelsk, polsk, tysk og ukrainsk. Ta gjerne kontakt på{" "}
+          <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="prosjekter" aria-labelledby="prosjekter-tittel">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="prosjekter-tittel">Utvalgte prosjekter</h2>
+        </div>
+        <a class="more" href="/work/">Alle prosjekter (på engelsk) →</a>
+      </div>
+      <div class="grid card-grid">
+        {featured.map((p) => <ProjectCard project={p} lang="nb" />)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="artikler">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="artikler">Slik bygger du synssystemer som fungerer</h2>
+        </div>
+        <a class="more" href="/no/artikler/">Alle artikler →</a>
+      </div>
+      <PostList posts={norwegian} />
+    </div>
+  </section>
+</Base>
+
+<style>
+  .about {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: clamp(32px, 6vw, 96px);
+  }
+  .about-text p {
+    color: var(--ink-2);
+    font-size: 1.05rem;
+  }
+  @media (max-width: 980px) {
+    .about {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

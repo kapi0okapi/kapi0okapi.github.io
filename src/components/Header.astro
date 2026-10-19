@@ -1,0 +1,161 @@
+---
+import { HOME, LANG_LABEL, LANG_NAME, NAV, UI, type Lang } from "../lib/i18n";
+
+interface Props {
+  lang?: Lang;
+  /** The current page in other languages; without it the switch points at the other home page. */
+  alternates?: { lang: string; href: string }[];
+}
+const { lang = "en", alternates = [] } = Astro.props;
+const path = Astro.url.pathname;
+const nav = NAV[lang];
+const isActive = (href: string) => href !== "/" && !href.includes("#") && path.startsWith(href);
+const others =
+  alternates.length > 1
+    ? alternates.filter((a) => a.lang !== lang).map((a) => ({ lang: a.lang as Lang, href: a.href }))
+    : [lang === "nb" ? { lang: "en" as Lang, href: "/" } : { lang: "nb" as Lang, href: "/no/" }];
+---
+
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="mark" href={HOME[lang]} aria-label={`Kacper Pawlowski, ${UI[lang].homeLabel}`}>
+      <span class="dot" aria-hidden="true"></span>
+      <span class="name">Kacper Pawlowski</span>
+      <span class="role mono">{UI[lang].role}</span>
+    </a>
+    <nav aria-label={UI[lang].mainNav}>
+      <ul class="links">
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+        {
+          others.map((o) => (
+            <li class="lang">
+              <a href={o.href} hreflang={o.lang} lang={o.lang} class="mono" title={LANG_NAME[o.lang]}>
+                {LANG_LABEL[o.lang]}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: var(--header-h);
+    background: rgb(255 255 255 / 0.86);
+    backdrop-filter: saturate(1.4) blur(10px);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .mark {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .mark:hover {
+    color: var(--ink);
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    background: var(--accent);
+    border-radius: 1px;
+    align-self: center;
+  }
+  .name {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .role {
+    color: var(--muted);
+  }
+  .links {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 2.4vw, 28px);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.93rem;
+  }
+  .links a {
+    text-decoration: none;
+    color: var(--ink-2);
+  }
+  .links a:hover,
+  .links a[aria-current="page"] {
+    color: var(--ink);
+  }
+  .links a[aria-current="page"] {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .lang + .lang {
+    margin-left: -6px;
+  }
+  .lang a {
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 3px 6px;
+  }
+  @media (max-width: 640px) {
+    .role {
+      display: none;
+    }
+    .links {
+      gap: 12px;
+      font-size: 0.88rem;
+    }
+  }
+  @media (max-width: 460px) {
+    .bar {
+      gap: 10px;
+    }
+    .mark {
+      gap: 8px;
+    }
+    .name {
+      font-size: 0.92rem;
+    }
+    .links {
+      gap: 10px;
+      font-size: 0.84rem;
+    }
+    .links li:nth-child(3) {
+      display: none;
+    }
+    .lang a {
+      padding: 2px 5px;
+    }
+  }
+  @media (max-width: 400px) {
+    .lang + .lang {
+      display: none;
+    }
+    .links {
+      gap: 8px;
+      font-size: 0.8rem;
+    }
+  }
+</style>

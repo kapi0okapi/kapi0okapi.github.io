@@ -1,0 +1,366 @@
+---
+// The hero clip: 240 consecutive Vegbilder photos of the E6 (one every 10 m), run through three
+// models and rendered as three synchronised videos. The tabs switch between them at the same
+// frame. Only the first video loads with the page; the others load on first use.
+interface Props {
+  lang?: "en" | "nb";
+}
+const { lang = "en" } = Astro.props;
+const nb = lang === "nb";
+const modes = [
+  {
+    id: "detect",
+    label: nb ? "Deteksjon" : "Detection",
+    hud: "YOLO26s · ByteTrack",
+    legend: nb
+      ? "Kjøretøy: YOLO26s + ByteTrack. Skilt: YOLO26s-sem. Rekkverk: min finjusterte modell."
+      : "Vehicles: YOLO26s + ByteTrack. Signs: YOLO26s-sem. Guard rails: my fine-tuned model.",
+  },
+  {
+    id: "segment",
+    label: nb ? "Segmentering" : "Segmentation",
+    hud: "YOLO26s-sem · 19 + 1 classes",
+    legend: nb
+      ? "19 Cityscapes-klasser fra YOLO26s-sem, rekkverk (oransje) fra min finjusterte modell."
+      : "19 Cityscapes classes from YOLO26s-sem, guard rails (orange) from my fine-tuned model.",
+  },
+  {
+    id: "depth",
+    label: nb ? "Dybde" : "Depth",
+    hud: "Depth Anything V2",
+    legend: nb ? "Relativ dybde fra ett enkelt kamera med Depth Anything V2 Small." : "Relative depth from a single camera with Depth Anything V2 Small.",
+  },
+];
+---
+
+<figure class="player" data-player>
+  <div class="screen vf">
+    {
+      modes.map((m, i) => (
+        <video
+          class={i === 0 ? "is-active" : ""}
+          data-mode={m.id}
+          data-src={`/media/drive/${m.id}.mp4`}
+          src={i === 0 ? `/media/drive/${m.id}.mp4` : undefined}
+          poster={`/media/drive/${m.id}-poster.jpg`}
+          muted
+          loop
+          playsinline
+          preload={i === 0 ? "auto" : "none"}
+          width="960"
+          height="540"
+          aria-label={nb ? `Vegbilder fra E6 med ${m.label.toLowerCase()}` : `E6 road photos with ${m.label.toLowerCase()} overlay`}
+        />
+      ))
+    }
+    <div class="hud hud--top mono" aria-hidden="true">
+      <span class="live"><i></i>E6 · Trondheim</span>
+      <span data-frame>frame 001 / 240</span>
+    </div>
+    <div class="hud hud--bottom mono" aria-hidden="true">
+      <span data-hud>{modes[0].hud}</span>
+      <span class="depthbar" data-depthbar hidden><span>{nb ? "nær" : "near"}</span><b></b><span>{nb ? "fjern" : "far"}</span></span>
+    </div>
+    <button class="playtoggle mono" type="button" data-toggle aria-label={nb ? "Pause" : "Pause"}>❚❚</button>
+  </div>
+  <div class="tabs" role="tablist" aria-label={nb ? "Visning" : "Overlay"}>
+    {
+      modes.map((m, i) => (
+        <button
+          type="button"
+          role="tab"
+          class="tab mono"
+          aria-selected={i === 0 ? "true" : "false"}
+          data-tab={m.id}
+          data-legend-text={m.legend}
+          data-hud-text={m.hud}
+          tabindex={i === 0 ? 0 : -1}
+        >
+          <span class="key">{i + 1}</span>
+          {m.label}
+        </button>
+      ))
+    }
+  </div>
+  <figcaption class="mono muted">
+    <span data-legend>{modes[0].legend}</span>
+    <span>{nb ? "2,4 km av E6, ett bilde hver 10. m · Vegbilder, Statens vegvesen (NLOD)" : "2.4 km of the E6, a photo every 10 m · Vegbilder, Statens vegvesen (NLOD)"}</span>
+  </figcaption>
+</figure>
+
+<style>
+  .player {
+    margin: 0;
+  }
+  .screen {
+    --c: var(--accent);
+    --l: 22px;
+    --w: 2px;
+    position: relative;
+    aspect-ratio: 16 / 9;
+    padding: 8px;
+    border-radius: 2px;
+  }
+  .screen video {
+    position: absolute;
+    inset: 8px;
+    width: calc(100% - 16px);
+    height: calc(100% - 16px);
+    object-fit: cover;
+    border-radius: 3px;
+    background: #d9dde1;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .screen video.is-active {
+    opacity: 1;
+  }
+  .hud {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: #fff;
+    font-size: 0.72rem;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+    pointer-events: none;
+  }
+  .hud--top {
+    top: 18px;
+  }
+  .hud--bottom {
+    bottom: 18px;
+    align-items: end;
+  }
+  .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .live i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px rgb(255 79 26 / 0.3);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    50% {
+      opacity: 0.35;
+    }
+  }
+  .depthbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .depthbar[hidden] {
+    display: none;
+  }
+  .depthbar b {
+    width: 80px;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #fcffa4, #f98e09, #bc3754, #57106e, #000004);
+  }
+  .playtoggle {
+    position: absolute;
+    right: 18px;
+    top: 44px;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 50%;
+    background: rgb(14 16 19 / 0.45);
+    color: #fff;
+    font-size: 0.7rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .screen:hover .playtoggle,
+  .playtoggle:focus-visible {
+    opacity: 1;
+  }
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink-2);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .tab .key {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    background: var(--wash);
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+  .tab[aria-selected="true"] {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+  .tab[aria-selected="true"] .key {
+    background: var(--accent);
+    color: var(--ink);
+  }
+  .tab:hover {
+    border-color: var(--accent);
+  }
+  @media (max-width: 560px) {
+    .tab {
+      padding: 0 10px;
+    }
+    .tab .key {
+      display: none;
+    }
+  }
+  figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 10px;
+    font-size: 0.7rem;
+    line-height: 1.5;
+  }
+  figcaption [data-legend] {
+    color: var(--ink-2);
+  }
+
+</style>
+
+<script>
+  const FPS = 8;
+  const FRAMES = 240;
+
+  for (const player of document.querySelectorAll<HTMLElement>("[data-player]")) {
+    const videos = [...player.querySelectorAll<HTMLVideoElement>("video")];
+    const tabs = [...player.querySelectorAll<HTMLButtonElement>("[data-tab]")];
+    const frameLabel = player.querySelector<HTMLElement>("[data-frame]")!;
+    const legend = player.querySelector<HTMLElement>("[data-legend]")!;
+    const hud = player.querySelector<HTMLElement>("[data-hud]")!;
+    const depthbar = player.querySelector<HTMLElement>("[data-depthbar]")!;
+    const toggle = player.querySelector<HTMLButtonElement>("[data-toggle]")!;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let active = videos[0];
+    let paused = reduced;
+    let inView = true;
+
+    // Safari starts muted inline video only when the properties are set, not just the attributes,
+    // and refuses autoplay altogether in Low Power Mode: then the first click or tap starts it.
+    let waiting = false;
+    const GESTURES = ["pointerdown", "keydown", "touchend"] as const;
+    const resume = () => {
+      waiting = false;
+      for (const e of GESTURES) window.removeEventListener(e, resume, true);
+      sync();
+    };
+    const start = (v: HTMLVideoElement) => {
+      v.muted = true;
+      v.defaultMuted = true;
+      v.playsInline = true;
+      v.play().catch(() => {
+        if (waiting) return;
+        waiting = true;
+        for (const e of GESTURES) window.addEventListener(e, resume, true);
+      });
+    };
+    const sync = () => {
+      for (const v of videos) {
+        if (v === active && !paused && inView) start(v);
+        else v.pause();
+      }
+    };
+
+    // Switch at once and keep the playhead: the new video shows its poster until its first frame
+    // is decoded. Videos that were never played get their source (and start loading) here.
+    const select = (id: string) => {
+      const next = videos.find((v) => v.dataset.mode === id);
+      if (!next) return;
+      for (const t of tabs) {
+        const on = t.dataset.tab === id;
+        t.setAttribute("aria-selected", String(on));
+        t.tabIndex = on ? 0 : -1;
+        if (on) {
+          legend.textContent = t.dataset.legendText ?? "";
+          hud.textContent = t.dataset.hudText ?? "";
+        }
+      }
+      depthbar.hidden = id !== "depth";
+      if (next === active) return;
+
+      const time = active.currentTime;
+      if (!next.getAttribute("src")) next.src = next.dataset.src!;
+      next.preload = "auto";
+      const seek = () => {
+        if (Number.isFinite(next.duration)) next.currentTime = time % next.duration;
+      };
+      if (next.readyState >= 1) seek();
+      else next.addEventListener("loadedmetadata", seek, { once: true });
+
+      active.classList.remove("is-active");
+      next.classList.add("is-active");
+      active = next;
+      sync();
+    };
+
+    tabs.forEach((tab, i) => {
+      tab.addEventListener("click", () => select(tab.dataset.tab!));
+      tab.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+        next.focus();
+        select(next.dataset.tab!);
+      });
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
+      const index = Number(e.key) - 1;
+      if (index >= 0 && index < tabs.length && inView) select(tabs[index].dataset.tab!);
+    });
+
+    toggle.addEventListener("click", () => {
+      paused = !paused;
+      toggle.textContent = paused ? "▶" : "❚❚";
+      toggle.setAttribute("aria-label", paused ? "Play" : "Pause");
+      sync();
+    });
+    if (reduced) {
+      toggle.textContent = "▶";
+      toggle.setAttribute("aria-label", "Play");
+    }
+
+    new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      sync();
+    }, { threshold: 0.15 }).observe(player);
+
+    const tick = () => {
+      const frame = Math.min(FRAMES, Math.floor(active.currentTime * FPS) + 1);
+      frameLabel.textContent = `frame ${String(frame).padStart(3, "0")} / ${FRAMES}`;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    sync();
+  }
+</script>

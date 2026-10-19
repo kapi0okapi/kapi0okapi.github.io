@@ -1,0 +1,17 @@
+---
+import ArticlePage from "../../components/ArticlePage.astro";
+import { getPosts, slugOf, type Post } from "../../lib/content";
+
+export async function getStaticPaths() {
+  const all = await getPosts();
+  return (await getPosts("en")).map((post) => ({ params: { slug: slugOf(post) }, props: { post, all } }));
+}
+
+interface Props {
+  post: Post;
+  all: Post[];
+}
+const { post, all } = Astro.props;
+---
+
+<ArticlePage post={post} all={all} />

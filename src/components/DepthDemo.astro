@@ -1,0 +1,533 @@
+---
+// Distance in metres from one photo: YOLO26s-depth fine-tuned on KITTI (monocular-depth project),
+// INT8 weights, run in the browser with WebGPU or WebAssembly. Point at a pixel to read its
+// distance, click to pin it.
+const samples = [
+  { src: "/lab/kitti-1.jpg", label: "Street 1" },
+  { src: "/lab/kitti-2.jpg", label: "Street 2" },
+  { src: "/lab/kitti-3.jpg", label: "Street 3" },
+];
+const ticks = [2, 5, 10, 20, 40, 80];
+---
+
+<div class="ddemo" data-depth>
+  <div class="dstage vf" aria-label="Photo with its depth map. Point at a pixel to read its distance, click to pin it.">
+    <canvas data-d-canvas width="1242" height="375"></canvas>
+    <div class="dveil" data-d-veil>
+      <button class="btn" type="button" data-d-start>Load model and measure</button>
+      <p class="mono" data-d-veil-text>12.5 MB model + WebGPU runtime, cached after the first visit</p>
+      <div class="dbar" aria-hidden="true"><span data-d-bar></span></div>
+    </div>
+  </div>
+  <div class="dpanel">
+    <fieldset>
+      <legend class="mono">Photo</legend>
+      <div class="dseg" role="group">
+        {
+          samples.map((s, i) => (
+            <button type="button" class="dopt mono" data-d-sample={s.src} aria-pressed={i === 0 ? "true" : "false"}>
+              {s.label}
+            </button>
+          ))
+        }
+        <label class="dopt mono dupload">
+          Upload
+          <input type="file" accept="image/*" data-d-upload />
+        </label>
+      </div>
+    </fieldset>
+    <label class="dslider">
+      <span class="mono">Depth overlay <output data-d-alpha-out>55 %</output></span>
+      <input type="range" min="0" max="1" step="0.05" value="0.55" data-d-alpha />
+    </label>
+    <div>
+      <div class="dlegend" aria-hidden="true"></div>
+      <div class="dticks mono" aria-hidden="true">
+        {ticks.map((t) => <span style={`left:${(Math.log(t / 2) / Math.log(40)) * 100}%`}>{t} m</span>)}
+      </div>
+    </div>
+    <p class="dread mono" data-d-read>Point at the photo to read a distance; click to pin it.</p>
+    <dl class="dstats mono">
+      <div><dt>runtime</dt><dd data-d-backend> - </dd></div>
+      <div><dt>model load</dt><dd data-d-load> - </dd></div>
+      <div><dt>inference</dt><dd data-d-ms> - </dd></div>
+    </dl>
+    <p class="small muted dnote">
+      Calibrated for a car camera like KITTI's. On other photos the distances are an estimate; the shape of the
+      scene stays right.
+    </p>
+    <p class="small muted" data-d-error hidden></p>
+  </div>
+</div>
+
+<style>
+  .ddemo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: clamp(20px, 3vw, 36px);
+    align-items: start;
+  }
+  .dstage {
+    --c: var(--accent);
+    --l: 22px;
+    --w: 2px;
+    position: relative;
+    padding: 8px;
+  }
+  .dstage canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 72vh;
+    object-fit: contain;
+    border-radius: 3px;
+    background: var(--wash);
+    border: 1px solid var(--line);
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .dveil {
+    position: absolute;
+    inset: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    text-align: center;
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(3px);
+    border-radius: 3px;
+    transition: opacity 0.3s;
+  }
+  .dveil p {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.74rem;
+  }
+  .dveil.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .dbar {
+    width: min(260px, 70%);
+    height: 3px;
+    background: var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .dbar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    transition: width 0.15s;
+  }
+  .dpanel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  legend,
+  .dslider > span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+  .dseg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .dopt {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+  .dopt:hover {
+    border-color: var(--accent);
+  }
+  .dopt[aria-pressed="true"] {
+    border-color: var(--ink);
+    color: var(--ink);
+    background: var(--wash);
+  }
+  .dupload input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .dslider input {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .dlegend {
+    height: 10px;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      #7a0403,
+      #c42503,
+      #f05b12,
+      #fbb938,
+      #a4fc3c,
+      #2ee5ae,
+      #29bbec,
+      #466be3,
+      #30123b
+    );
+  }
+  .dticks {
+    position: relative;
+    height: 18px;
+    font-size: 0.66rem;
+    color: var(--muted);
+  }
+  .dticks span {
+    position: absolute;
+    top: 4px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .dticks span:first-child {
+    transform: none;
+  }
+  .dticks span:last-child {
+    transform: translateX(-100%);
+  }
+  .dread {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    font-size: 0.8rem;
+    color: var(--ink-2);
+    min-height: 40px;
+  }
+  .dstats {
+    margin: 0;
+    border-top: 1px solid var(--line);
+    font-size: 0.74rem;
+  }
+  .dstats div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .dstats dt {
+    color: var(--muted);
+  }
+  .dstats dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .dnote {
+    margin: 0;
+    line-height: 1.45;
+  }
+  @media (max-width: 860px) {
+    .ddemo {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  const SIZE = 768;
+  const NEAR = 2;
+  const FAR = 80;
+  const MODEL = "/models/depth/yolo26s-depth-kitti-w8.onnx";
+
+  // Google's polynomial approximation of the Turbo colour map, t in [0, 1]
+  function turbo(t: number): [number, number, number] {
+    const x = Math.min(1, Math.max(0, t));
+    const r = 0.13572138 + x * (4.6153926 + x * (-42.66032258 + x * (132.13108234 + x * (-152.94239396 + x * 59.28637943))));
+    const g = 0.09140261 + x * (2.19418839 + x * (4.84296658 + x * (-14.18503333 + x * (4.27729857 + x * 2.82956604))));
+    const b = 0.1066733 + x * (12.64194608 + x * (-60.58204836 + x * (110.36276771 + x * (-89.90310912 + x * 27.34824973))));
+    const c = (v: number) => Math.round(255 * Math.min(1, Math.max(0, v)));
+    return [c(r), c(g), c(b)];
+  }
+  const LUT = Array.from({ length: 256 }, (_, i) => turbo(i / 255));
+
+  const root = document.querySelector<HTMLElement>("[data-depth]")!;
+  const $ = <T extends Element>(s: string) => root.querySelector<T>(s)!;
+  const canvas = $<HTMLCanvasElement>("[data-d-canvas]");
+  const ctx = canvas.getContext("2d")!;
+  const veil = $<HTMLElement>("[data-d-veil]");
+  const veilText = $<HTMLElement>("[data-d-veil-text]");
+  const bar = $<HTMLElement>("[data-d-bar]");
+  const startBtn = $<HTMLButtonElement>("[data-d-start]");
+  const alphaIn = $<HTMLInputElement>("[data-d-alpha]");
+  const alphaOut = $<HTMLElement>("[data-d-alpha-out]");
+  const read = $<HTMLElement>("[data-d-read]");
+  const errorEl = $<HTMLElement>("[data-d-error]");
+  const backendOut = $<HTMLElement>("[data-d-backend]");
+  const loadOut = $<HTMLElement>("[data-d-load]");
+  const msOut = $<HTMLElement>("[data-d-ms]");
+  const sampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-d-sample]"));
+
+  let worker: Worker | null = null;
+  let nextId = 0;
+  const pending = new Map<number, { resolve: (d: any) => void; reject: (e: Error) => void }>();
+  let image: HTMLImageElement | null = null;
+  let depth: Float32Array | null = null;
+  let overlay: HTMLCanvasElement | null = null;
+  let pins: { x: number; y: number; d: number }[] = [];
+  let hover: { x: number; y: number; d: number } | null = null;
+  let modelReady: Promise<void> | null = null;
+  let generation = 0; // the latest photo wins; older results are dropped
+
+  function call(message: Record<string, unknown>, transfer: Transferable[] = []) {
+    const id = nextId++;
+    return new Promise<any>((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+      worker!.postMessage({ ...message, id }, transfer);
+    });
+  }
+
+  function ensureWorker() {
+    if (worker) return;
+    worker = new Worker(new URL("../scripts/onnx.worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = (event) => {
+      const msg = event.data;
+      if (msg.type === "progress") {
+        bar.style.width = `${(msg.fraction * 100).toFixed(0)}%`;
+        return;
+      }
+      const job = pending.get(msg.id);
+      if (!job) return;
+      pending.delete(msg.id);
+      if (msg.type === "error") job.reject(new Error(msg.message));
+      else job.resolve(msg);
+    };
+  }
+
+  function preprocess(img: HTMLImageElement): Float32Array {
+    const c = document.createElement("canvas");
+    c.width = SIZE;
+    c.height = SIZE;
+    const cx = c.getContext("2d", { willReadFrequently: true })!;
+    cx.drawImage(img, 0, 0, SIZE, SIZE); // stretched, as in training
+    const { data } = cx.getImageData(0, 0, SIZE, SIZE);
+    const out = new Float32Array(3 * SIZE * SIZE);
+    const plane = SIZE * SIZE;
+    for (let i = 0; i < plane; i++) {
+      out[i] = data[4 * i] / 255;
+      out[plane + i] = data[4 * i + 1] / 255;
+      out[2 * plane + i] = data[4 * i + 2] / 255;
+    }
+    return out;
+  }
+
+  function depthAt(x: number, y: number, w: number, h: number): number {
+    const d = depth!;
+    const u = Math.min(SIZE - 1, Math.max(0, ((x + 0.5) / w) * SIZE - 0.5));
+    const v = Math.min(SIZE - 1, Math.max(0, ((y + 0.5) / h) * SIZE - 0.5));
+    const u0 = Math.floor(u), v0 = Math.floor(v);
+    const u1 = Math.min(SIZE - 1, u0 + 1), v1 = Math.min(SIZE - 1, v0 + 1);
+    const fu = u - u0, fv = v - v0;
+    const top = d[v0 * SIZE + u0] * (1 - fu) + d[v0 * SIZE + u1] * fu;
+    const bottom = d[v1 * SIZE + u0] * (1 - fu) + d[v1 * SIZE + u1] * fu;
+    return top * (1 - fv) + bottom * fv;
+  }
+
+  function buildOverlay(w: number, h: number) {
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const cx = c.getContext("2d")!;
+    const out = cx.createImageData(w, h);
+    const scale = Math.log(FAR / NEAR);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const d = depthAt(x, y, w, h);
+        const t = 1 - Math.log(Math.min(FAR, Math.max(NEAR, d)) / NEAR) / scale; // near = warm
+        const [r, g, b] = LUT[Math.round(t * 255)];
+        const k = 4 * (y * w + x);
+        out.data[k] = r;
+        out.data[k + 1] = g;
+        out.data[k + 2] = b;
+        out.data[k + 3] = 255;
+      }
+    }
+    cx.putImageData(out, 0, 0);
+    return c;
+  }
+
+  function label(x: number, y: number, text: string, filled: boolean) {
+    // about 13 px on screen, whatever the size of the photo
+    const shown = canvas.getBoundingClientRect().width || canvas.width;
+    const s = Math.round(13 * Math.max(1, canvas.width / shown));
+    ctx.font = `600 ${s}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    ctx.lineWidth = Math.max(2, s / 7);
+    ctx.strokeStyle = "#fff";
+    ctx.fillStyle = filled ? "#ff4f1a" : "#fff";
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    const tw = ctx.measureText(text).width;
+    const bx = Math.min(canvas.width - tw - 14, x + s * 0.6);
+    const by = Math.max(s + 6, y - s * 0.4);
+    ctx.fillStyle = "rgb(20 20 20 / 0.82)";
+    ctx.fillRect(bx - 6, by - s - 2, tw + 12, s + 10);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(text, bx, by + 2);
+  }
+
+  function render() {
+    if (!image) return;
+    ctx.globalAlpha = 1;
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    if (overlay) {
+      ctx.globalAlpha = Number(alphaIn.value);
+      ctx.drawImage(overlay, 0, 0);
+      ctx.globalAlpha = 1;
+    }
+    for (const p of pins) label(p.x, p.y, `${p.d.toFixed(1)} m`, true);
+    if (hover) label(hover.x, hover.y, `${hover.d.toFixed(1)} m`, false);
+  }
+
+  async function measure(img: HTMLImageElement) {
+    const mine = ++generation;
+    image = img;
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    pins = [];
+    hover = null;
+    overlay = null;
+    depth = null;
+    render();
+    read.textContent = "Measuring…";
+    const input = preprocess(img);
+    const result = await call({ type: "run", feeds: { images: { data: input, dims: [1, 3, SIZE, SIZE] } } }, [
+      input.buffer,
+    ]);
+    if (mine !== generation) return;
+    depth = result.outputs.output0.data as Float32Array;
+    msOut.textContent = `${result.ms.toFixed(0)} ms`;
+    overlay = buildOverlay(canvas.width, canvas.height);
+    const nearest = depth.reduce((m, v) => Math.min(m, v), Infinity);
+    read.textContent = `Nearest point ${nearest.toFixed(1)} m. Point at the photo to read a distance; click to pin it.`;
+    render();
+  }
+
+  async function loadImage(src: string) {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    return img;
+  }
+
+  function ensureModel() {
+    modelReady ??= (async () => {
+      ensureWorker();
+      startBtn.disabled = true;
+      veilText.textContent = "Downloading the model…";
+      const result = await call({ type: "load", url: MODEL });
+      backendOut.textContent = result.backend;
+      loadOut.textContent = `${(result.ms / 1000).toFixed(1)} s`;
+      veil.classList.add("is-hidden");
+    })().catch((error) => {
+      modelReady = null; // allow a retry
+      throw error;
+    });
+    return modelReady;
+  }
+
+  async function run(src: string | File) {
+    errorEl.hidden = true;
+    try {
+      await ensureModel();
+      const img = await loadImage(typeof src === "string" ? src : URL.createObjectURL(src));
+      await measure(img);
+      if (typeof src !== "string") URL.revokeObjectURL(img.src);
+    } catch (error) {
+      errorEl.hidden = false;
+      errorEl.textContent = `Could not measure: ${(error as Error).message}`;
+      startBtn.disabled = false;
+      veilText.textContent = "The model could not start. Try again.";
+    }
+  }
+
+  function toImage(event: PointerEvent) {
+    const rect = canvas.getBoundingClientRect();
+    // the bitmap is drawn with object-fit: contain inside the element box
+    const scale = Math.min(rect.width / canvas.width, rect.height / canvas.height);
+    const offX = (rect.width - canvas.width * scale) / 2;
+    const offY = (rect.height - canvas.height * scale) / 2;
+    const x = (event.clientX - rect.left - offX) / scale;
+    const y = (event.clientY - rect.top - offY) / scale;
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
+    return { x, y };
+  }
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (!depth) return;
+    const p = toImage(event);
+    hover = p ? { ...p, d: depthAt(p.x, p.y, canvas.width, canvas.height) } : null;
+    if (hover) read.textContent = `Distance at the pointer: ${hover.d.toFixed(1)} m`;
+    render();
+  });
+  canvas.addEventListener("pointerleave", () => {
+    hover = null;
+    render();
+  });
+  canvas.addEventListener("click", (event) => {
+    if (!depth) return;
+    const p = toImage(event as PointerEvent);
+    if (!p) return;
+    pins = [...pins.slice(-5), { ...p, d: depthAt(p.x, p.y, canvas.width, canvas.height) }];
+    render();
+  });
+  alphaIn.addEventListener("input", () => {
+    alphaOut.textContent = `${Math.round(Number(alphaIn.value) * 100)} %`;
+    render();
+  });
+  for (const button of sampleButtons) {
+    button.addEventListener("click", () => {
+      sampleButtons.forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+      void run(button.dataset.dSample!);
+    });
+  }
+  $<HTMLInputElement>("[data-d-upload]").addEventListener("change", (event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      sampleButtons.forEach((b) => b.setAttribute("aria-pressed", "false"));
+      void run(file);
+    }
+    input.value = "";
+  });
+  startBtn.addEventListener("click", () => {
+    startBtn.disabled = true;
+    void run(sampleButtons[0].dataset.dSample!);
+  });
+  // show the first street photo under the veil before the model is loaded
+  void loadImage(sampleButtons[0].dataset.dSample!).then((img) => {
+    if (image) return;
+    image = img;
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    render();
+  });
+</script>

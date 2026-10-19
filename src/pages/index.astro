@@ -1,0 +1,427 @@
+---
+import { Image } from "astro:assets";
+import Base from "../layouts/Base.astro";
+import Hero from "../components/Hero.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import PostList from "../components/PostList.astro";
+import { getPosts, getProjects } from "../lib/content";
+import { person, website } from "../data/schema";
+import labDetection from "../assets/lab-detection.jpg";
+import labGestures from "../assets/lab-gestures.jpg";
+import labDepth from "../assets/lab-depth.jpg";
+import labAge from "../assets/lab-age.jpg";
+
+const projects = await getProjects();
+const featured = projects.filter((p) => p.data.featured);
+const [lead, ...rest] = featured;
+const posts = (await getPosts("en")).slice(0, 4);
+
+// Three of my models that run in the visitor's browser (the lab page)
+const demos = [
+  {
+    title: "Object detection",
+    text: "YOLO26n in INT8, 3.4 MB, on a street photo, your own image or the webcam.",
+    image: labDetection,
+    alt: "YOLO26n detections drawn on a street scene from KITTI",
+    href: "/lab/",
+  },
+  {
+    title: "Hand gestures",
+    text: "MediaPipe finds the hand and my classifier names one of 34 gestures, live from the webcam.",
+    image: labGestures,
+    alt: "The 21-point skeleton of a hand making the peace sign, labelled peace 93 %",
+    href: "/lab/#gestures",
+  },
+  {
+    title: "Distance in metres",
+    text: "My fine-tuned depth model measures any point of a street photo, on your GPU.",
+    image: labDepth,
+    alt: "A street photo coloured by distance, with a car marked at 8.2 m",
+    href: "/lab/#depth",
+  },
+  {
+    title: "Age from a face",
+    text: "Face landmarks, the alignment used in training and my DINOv3 age model, live from the webcam.",
+    image: labAge,
+    alt: "A face mesh with the five alignment points and a probability distribution over age",
+    href: "/lab/#age",
+  },
+];
+// What is training right now, and what finished most recently
+const cluster: { title: string; text: string; state: string; href?: string }[] = [
+  {
+    title: "Drowning detection",
+    text: "A detector trained on Blender renders from ceiling cameras and 3D tracking through the water surface: all 200 simulated ISO 20380 tests passed.",
+    state: "done",
+    href: "/work/vaktsom/",
+  },
+  {
+    title: "Multimodal image search",
+    text: "Photos found by a sentence or another photo and reranked by Qwen3-VL: the right photo first in 89.7 % of Flickr30k searches.",
+    state: "done",
+    href: "/work/multimodal-image-search/",
+  },
+];
+const finished = [
+  { href: "/work/monocular-depth/", title: "Monocular depth", result: "0.075 AbsRel in metres" },
+  { href: "/work/lidar-road-segmentation/", title: "LiDAR segmentation", result: "81.8 mIoU" },
+  { href: "/work/guardrail-inspector/", title: "Guardrail inspector", result: "0.98 AP" },
+  { href: "/work/hand-gesture-recognition/", title: "Hand gestures", result: "99.3 % accuracy" },
+  { href: "/work/age-estimation/", title: "Age estimation", result: "4.25 years error" },
+];
+---
+
+<Base
+  title="Kacper Pawlowski - AI Engineer · Computer Vision · NTNU"
+  description="Kacper Pawlowski is an AI engineer in Trondheim and MSc student at NTNU. Computer vision, LiDAR SLAM, sensor fusion and edge deployment - projects and articles."
+  alternates={[
+    { lang: "en", href: "/" },
+    { lang: "nb", href: "/no/" },
+  ]}
+  type="profile"
+  jsonLd={[person(), website()]}
+>
+  <Hero>
+    <h1>
+      Kacper Pawlowski
+      <span class="h1-role">AI engineer for computer vision and 3D perception</span>
+    </h1>
+    <p class="lede">
+      I build systems that see: detection, segmentation and depth from cameras, odometry and maps from LiDAR - and
+      take them from raw sensor data to a model that runs where it is needed.
+    </p>
+    <div class="actions">
+      <a class="btn" href="/work/">See the work <span aria-hidden="true">→</span></a>
+      <a class="btn btn--ghost" href="#contact">Get in touch</a>
+    </div>
+  </Hero>
+
+  <section class="facts" aria-label="In short">
+    <ul class="wrap facts-grid">
+      <li>
+        <strong>MSc at NTNU</strong>
+        <span>Computer Science (AI) and Industrial Mathematics</span>
+      </li>
+      <li>
+        <strong>AI engineer</strong>
+        <span>Computer vision for predictive maintenance at Lighthouse Consulting</span>
+      </li>
+      <li>
+        <strong>Open source</strong>
+        <span>Code, data pipelines and evaluations on GitHub</span>
+      </li>
+      <li>
+        <strong>5 languages</strong>
+        <span>English, Norwegian, Polish, German, Ukrainian</span>
+      </li>
+    </ul>
+  </section>
+
+  <section class="section" id="work">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2>Selected work</h2>
+        </div>
+        <a class="more" href="/work/">All projects →</a>
+      </div>
+      {lead && <ProjectCard project={lead} size="large" />}
+      <div class="grid card-grid">
+        {rest.map((p) => <ProjectCard project={p} />)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section demos" aria-labelledby="demos-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="demos-title">Try my models in your browser</h2>
+        </div>
+        <a class="more mono" href="/lab/">Open the lab →</a>
+      </div>
+      <ul class="demo-grid">
+        {
+          demos.map((d) => (
+            <li>
+              <a class="demo-card vf" href={d.href}>
+                <Image src={d.image} alt={d.alt} widths={[380, 560, 748]} sizes="(max-width: 860px) 100vw, 290px" />
+                <span class="demo-copy">
+                  <strong>{d.title}</strong>
+                  <span class="muted">{d.text}</span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="demos-note mono muted">Everything runs on your device. No image or video frame is uploaded.</p>
+    </div>
+  </section>
+
+  <section class="section now" aria-labelledby="now-title">
+    <div class="wrap now-grid">
+      <div class="now-head now-head--queue">
+        <h2 id="now-title" class="h2-mid">On the GPU cluster this month</h2>
+        <p class="muted">The heavy training runs on a supercomputer. This is what it worked on this month.</p>
+      </div>
+      <ul class="queue">
+        {
+          cluster.map((c) => (
+            <li>
+              <span class="state mono">{c.state}</span>
+              <span class="queue-copy">
+                {c.href ? <a href={c.href}><strong>{c.title}</strong></a> : <strong>{c.title}</strong>}
+                <span class="muted">{c.text}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+      <div class="now-head now-head--done">
+        <h2 class="h2-mid">Results from the last runs</h2>
+        <p class="muted">Scores on held-out test data, from the projects that finished most recently.</p>
+      </div>
+      <ul class="done">
+        {
+          finished.map((f) => (
+            <li>
+              <a href={f.href}>{f.title}</a>
+              <span class="mono result">{f.result}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="writing-title">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="writing-title">How to build vision systems that work</h2>
+        </div>
+        <a class="more" href="/writing/">All articles →</a>
+      </div>
+      <PostList posts={posts} />
+    </div>
+  </section>
+</Base>
+
+<style>
+  .facts {
+    border-block: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .facts-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    list-style: none;
+    margin: 0 auto;
+  }
+  .facts li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 24px 24px 24px 0;
+  }
+  .facts li + li {
+    padding-left: 24px;
+    border-left: 1px solid var(--line);
+  }
+  .facts strong {
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  .facts span {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .grid {
+    margin-top: clamp(48px, 7vw, 88px);
+  }
+
+  .demo-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(16px, 2vw, 28px);
+  }
+  .demo-card {
+    --c: var(--line-strong);
+    --l: 18px;
+    --w: 2px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 8px;
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .demo-card:hover {
+    --c: var(--accent);
+    color: var(--ink);
+  }
+  .demo-card :global(img) {
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    background: var(--wash);
+  }
+  .demo-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 6px 6px;
+    font-size: 0.95rem;
+  }
+  .demo-copy strong {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .demos-note {
+    margin: 22px 0 0;
+    font-size: 0.74rem;
+  }
+  /* Two columns that mirror each other: headings in one row, lists in the next, so the lists
+     start and end on the same lines whatever the length of the text above them. */
+  .now-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "queue-head done-head"
+      "queue done";
+    column-gap: clamp(32px, 6vw, 88px);
+  }
+  .now-head--queue {
+    grid-area: queue-head;
+  }
+  .now-head--done {
+    grid-area: done-head;
+  }
+  .queue {
+    grid-area: queue;
+  }
+  .done {
+    grid-area: done;
+  }
+  .now-head .muted {
+    margin: 12px 0 0;
+    max-width: 46ch;
+  }
+  .h2-mid {
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+    margin: 0;
+  }
+  .queue,
+  .done {
+    list-style: none;
+    margin: 28px 0 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+  }
+  .queue li,
+  .done li {
+    flex: 1;
+  }
+  .queue li {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 12px;
+    align-items: baseline;
+    align-content: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .queue-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.95rem;
+  }
+  .queue-copy strong {
+    font-weight: 600;
+  }
+  .queue-copy a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .queue-copy a:hover {
+    color: var(--accent-ink);
+  }
+  .state {
+    color: var(--accent-ink);
+    font-size: 0.7rem;
+  }
+  .done li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    align-content: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .done a {
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .result {
+    font-size: 0.78rem;
+    color: var(--ink-2);
+    text-align: right;
+  }
+
+  @media (max-width: 980px) {
+    .now-grid {
+      grid-template-columns: 1fr;
+      grid-template-rows: none;
+      grid-template-areas: "queue-head" "queue" "done-head" "done";
+    }
+    .now-head--done {
+      margin-top: 56px;
+    }
+    .demo-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .facts-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .facts li:nth-child(3) {
+      padding-left: 0;
+      border-left: 0;
+    }
+    .facts li:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
+    }
+  }
+  @media (max-width: 640px) {
+    .demo-grid {
+      grid-template-columns: 1fr;
+    }
+    .facts-grid {
+      grid-template-columns: 1fr;
+    }
+    .facts li,
+    .facts li + li {
+      padding: 16px 0;
+      border-left: 0;
+    }
+    .facts li + li {
+      border-top: 1px solid var(--line);
+    }
+    .queue li {
+      grid-template-columns: 60px minmax(0, 1fr);
+    }
+  }
+</style>

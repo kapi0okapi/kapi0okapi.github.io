@@ -1,0 +1,648 @@
+---
+// Apparent age from a face: MediaPipe face landmarks, the same five-point alignment as in training,
+// and the ConvNeXt-T (DINOv3) model from age-estimation, INT8 weights, with flip test-time
+// augmentation. Runs in the browser; no frame leaves the page.
+const ticks = [0, 20, 40, 60, 80, 100];
+---
+
+<div class="adm" data-age>
+  <div class="astage vf" aria-label="Webcam or photo with the estimated age of each face">
+    <canvas data-a-canvas width="1280" height="720"></canvas>
+    <video class="afeed" data-a-video playsinline muted aria-hidden="true"></video>
+    <div class="aveil" data-a-veil>
+      <button class="btn" type="button" data-a-start>Start camera and estimate</button>
+      <label class="aupload mono">
+        or upload a photo with a face
+        <input type="file" accept="image/*" data-a-upload />
+      </label>
+      <p class="mono" data-a-veil-text>32 MB of models, cached after the first visit. Frames stay on your device.</p>
+      <div class="abar" aria-hidden="true"><span data-a-bar></span></div>
+    </div>
+  </div>
+  <div class="apanel">
+    <div class="aresult">
+      <canvas class="acrop" data-a-crop width="224" height="224" aria-label="The aligned face the model sees"></canvas>
+      <div>
+        <p class="aage mono" data-a-age aria-live="polite"><span> - </span></p>
+        <p class="arange mono muted" data-a-range>Show a face to the camera.</p>
+      </div>
+    </div>
+    <div>
+      <p class="alegend mono">Probability over age</p>
+      <canvas class="adist" data-a-dist width="600" height="120" aria-hidden="true"></canvas>
+      <div class="aticks mono" aria-hidden="true">
+        {ticks.map((t) => <span style={`left:${t}%`}>{t}</span>)}
+      </div>
+    </div>
+    <dl class="astats mono">
+      <div><dt>runtime</dt><dd data-a-backend> - </dd></div>
+      <div><dt>face landmarks</dt><dd data-a-mp> - </dd></div>
+      <div><dt>age model</dt><dd data-a-ms> - </dd></div>
+    </dl>
+    <div class="aactions">
+      <button class="abtn mono" type="button" data-a-stop hidden>Stop camera</button>
+      <label class="abtn aupload2 mono">
+        Upload photo
+        <input type="file" accept="image/*" data-a-upload2 />
+      </label>
+    </div>
+    <p class="small muted anote">
+      Apparent age, not the date of birth: light, expression and the camera move it by a few years. The model is
+      off by 1.3 years for children and by about 8 for people over 65.
+    </p>
+    <p class="small muted" data-a-error hidden></p>
+  </div>
+</div>
+
+<style>
+  .adm {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: clamp(20px, 3vw, 36px);
+    align-items: start;
+  }
+  .astage {
+    --c: var(--accent);
+    --l: 22px;
+    --w: 2px;
+    position: relative;
+    padding: 8px;
+  }
+  .astage canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: var(--ar, 16 / 9);
+    max-height: 72vh;
+    object-fit: contain;
+    border-radius: 3px;
+    background: var(--wash);
+    border: 1px solid var(--line);
+  }
+  .afeed {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .aveil {
+    position: absolute;
+    inset: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    text-align: center;
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(3px);
+    border-radius: 3px;
+    transition: opacity 0.3s;
+  }
+  .aveil p {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.74rem;
+  }
+  .aveil.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .abar {
+    width: min(260px, 70%);
+    height: 3px;
+    background: var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .abar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    transition: width 0.15s;
+  }
+  .apanel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .aresult {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+  }
+  .acrop {
+    width: 96px;
+    height: 96px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--wash);
+  }
+  .aage {
+    margin: 0;
+    font-size: 2.4rem;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .aage :global(small) {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-left: 6px;
+  }
+  .arange {
+    margin: 8px 0 0;
+    font-size: 0.74rem;
+    line-height: 1.4;
+  }
+  .alegend {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+  .adist {
+    display: block;
+    width: 100%;
+    height: 60px;
+    border-bottom: 1px solid var(--line-strong, var(--line));
+  }
+  .aticks {
+    position: relative;
+    height: 18px;
+    font-size: 0.66rem;
+    color: var(--muted);
+  }
+  .aticks span {
+    position: absolute;
+    top: 4px;
+    transform: translateX(-50%);
+  }
+  .aticks span:first-child {
+    transform: none;
+  }
+  .aticks span:last-child {
+    transform: translateX(-100%);
+  }
+  .astats {
+    margin: 0;
+    border-top: 1px solid var(--line);
+    font-size: 0.74rem;
+  }
+  .astats div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .astats dt {
+    color: var(--muted);
+  }
+  .astats dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .aactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .abtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+  .abtn:hover {
+    border-color: var(--accent);
+  }
+  .aupload {
+    position: relative;
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .aupload input,
+  .aupload2 input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .anote {
+    margin: 0;
+    line-height: 1.45;
+  }
+  @media (max-width: 860px) {
+    .adm {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  import { FaceLandmarker, FilesetResolver, type NormalizedLandmark } from "@mediapipe/tasks-vision";
+
+  const MODEL = "/models/age/age-convnext-dinov3-w8.onnx";
+  const LANDMARKER = "/models/age/face_landmarker.task";
+  const SIZE = 224;
+  const FACE_SCALE = 0.8;
+  const MEAN = [0.485, 0.456, 0.406];
+  const STD = [0.229, 0.224, 0.225];
+  // eyes, nose tip and mouth corners of the 112 x 112 ArcFace template, and the same points in
+  // MediaPipe's 478-point face mesh: iris centres, nose tip, mouth corners
+  const TEMPLATE = [
+    [38.2946, 51.6963],
+    [73.5318, 51.5014],
+    [56.0252, 71.7366],
+    [41.5493, 92.3655],
+    [70.7299, 92.2041],
+  ].map(([x, y]) => [(x - 56) * (SIZE / 112) * FACE_SCALE + SIZE / 2, (y - 56) * (SIZE / 112) * FACE_SCALE + SIZE / 2]);
+  const MESH_IDS = [468, 473, 1, 61, 291];
+
+  const root = document.querySelector<HTMLElement>("[data-age]")!;
+  const $ = <T extends Element>(s: string) => root.querySelector<T>(s)!;
+  const canvas = $<HTMLCanvasElement>("[data-a-canvas]");
+  const ctx = canvas.getContext("2d")!;
+  const video = $<HTMLVideoElement>("[data-a-video]");
+  const veil = $<HTMLElement>("[data-a-veil]");
+  const veilText = $<HTMLElement>("[data-a-veil-text]");
+  const bar = $<HTMLElement>("[data-a-bar]");
+  const startBtn = $<HTMLButtonElement>("[data-a-start]");
+  const stopBtn = $<HTMLButtonElement>("[data-a-stop]");
+  const cropCanvas = $<HTMLCanvasElement>("[data-a-crop]");
+  const cropCtx = cropCanvas.getContext("2d", { willReadFrequently: true })!;
+  const distCanvas = $<HTMLCanvasElement>("[data-a-dist]");
+  const distCtx = distCanvas.getContext("2d")!;
+  const ageOut = $<HTMLElement>("[data-a-age]");
+  const rangeOut = $<HTMLElement>("[data-a-range]");
+  const errorEl = $<HTMLElement>("[data-a-error]");
+  const backendOut = $<HTMLElement>("[data-a-backend]");
+  const mpOut = $<HTMLElement>("[data-a-mp]");
+  const msOut = $<HTMLElement>("[data-a-ms]");
+
+  type Face = { box: [number, number, number, number]; age: number; probs: Float32Array };
+
+  let worker: Worker | null = null;
+  let nextId = 0;
+  const pending = new Map<number, { resolve: (d: any) => void; reject: (e: Error) => void }>();
+  let landmarker: FaceLandmarker | null = null;
+  let ready: Promise<void> | null = null;
+  let stream: MediaStream | null = null;
+  let running = false;
+  let busy = false; // one age inference at a time; the camera keeps drawing meanwhile
+  let lastVideoTime = -1;
+  let faces: Face[] = [];
+  let generation = 0;
+
+  const accent = () => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff4f1a";
+
+  function call(message: Record<string, unknown>, transfer: Transferable[] = []) {
+    const id = nextId++;
+    return new Promise<any>((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+      worker!.postMessage({ ...message, id }, transfer);
+    });
+  }
+
+  async function createLandmarker(delegate: "GPU" | "CPU") {
+    const fileset = await FilesetResolver.forVisionTasks("/mediapipe");
+    return FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: LANDMARKER, delegate },
+      runningMode: "IMAGE",
+      numFaces: 4,
+      minFaceDetectionConfidence: 0.6,
+      minFacePresenceConfidence: 0.6,
+    });
+  }
+
+  function ensureModels() {
+    ready ??= (async () => {
+      worker = new Worker(new URL("../scripts/onnx.worker.ts", import.meta.url), { type: "module" });
+      worker.onmessage = (event) => {
+        const msg = event.data;
+        if (msg.type === "progress") {
+          bar.style.width = `${(msg.fraction * 100).toFixed(0)}%`;
+          return;
+        }
+        const job = pending.get(msg.id);
+        if (!job) return;
+        pending.delete(msg.id);
+        if (msg.type === "error") job.reject(new Error(msg.message));
+        else job.resolve(msg);
+      };
+      veilText.textContent = "Downloading the models…";
+      const [lm, loaded] = await Promise.all([
+        createLandmarker("GPU").catch(() => createLandmarker("CPU")),
+        call({ type: "load", url: MODEL }),
+      ]);
+      landmarker = lm;
+      backendOut.textContent = loaded.backend;
+    })().catch((error) => {
+      ready = null; // allow a retry
+      throw error;
+    });
+    return ready;
+  }
+
+  // Least-squares similarity (rotation, uniform scale, translation) from src onto dst, as
+  // [a, b, tx, ty] with x' = a x - b y + tx, y' = b x + a y + ty (Umeyama for 2D points).
+  function similarity(src: number[][], dst: number[][]) {
+    const n = src.length;
+    const ms = [0, 0], md = [0, 0];
+    for (let i = 0; i < n; i++) {
+      ms[0] += src[i][0] / n; ms[1] += src[i][1] / n;
+      md[0] += dst[i][0] / n; md[1] += dst[i][1] / n;
+    }
+    let num_a = 0, num_b = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+      const sx = src[i][0] - ms[0], sy = src[i][1] - ms[1];
+      const dx = dst[i][0] - md[0], dy = dst[i][1] - md[1];
+      num_a += sx * dx + sy * dy;
+      num_b += sx * dy - sy * dx;
+      den += sx * sx + sy * sy;
+    }
+    const a = num_a / den, b = num_b / den;
+    return [a, b, md[0] - (a * ms[0] - b * ms[1]), md[1] - (b * ms[0] + a * ms[1])];
+  }
+
+  // Aligned 224 x 224 crop -> normalised CHW floats, plus the horizontally flipped copy.
+  function alignedInput(source: CanvasImageSource, points: number[][], out: Float32Array, offset: number) {
+    const [a, b, tx, ty] = similarity(points, TEMPLATE);
+    cropCtx.setTransform(1, 0, 0, 1, 0, 0);
+    cropCtx.fillStyle = "#808080";
+    cropCtx.fillRect(0, 0, SIZE, SIZE);
+    cropCtx.setTransform(a, b, -b, a, tx, ty);
+    cropCtx.drawImage(source, 0, 0);
+    cropCtx.setTransform(1, 0, 0, 1, 0, 0);
+    const { data } = cropCtx.getImageData(0, 0, SIZE, SIZE);
+    const plane = SIZE * SIZE;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const k = 4 * (y * SIZE + x);
+        const i = y * SIZE + x;
+        const j = y * SIZE + (SIZE - 1 - x); // mirrored pixel for the flipped copy
+        for (let c = 0; c < 3; c++) {
+          const v = (data[k + c] / 255 - MEAN[c]) / STD[c];
+          out[offset + c * plane + i] = v;
+          out[offset + 3 * plane + c * plane + j] = v;
+        }
+      }
+    }
+  }
+
+  async function estimate(source: CanvasImageSource, width: number, height: number, landmarks: NormalizedLandmark[][]) {
+    const n = landmarks.length;
+    const plane = 3 * SIZE * SIZE;
+    const input = new Float32Array(2 * n * plane);
+    const boxes: Face["box"][] = [];
+    // the largest face last, so the crop shown in the panel is the main face
+    const order = landmarks
+      .map((lm, i) => ({ i, w: Math.max(...lm.map((p) => p.x)) - Math.min(...lm.map((p) => p.x)) }))
+      .sort((p, q) => p.w - q.w)
+      .map((o) => o.i);
+    order.forEach((idx, k) => {
+      const lm = landmarks[idx];
+      const pts = MESH_IDS.map((m) => [lm[m].x * width, lm[m].y * height]);
+      alignedInput(source, pts, input, 2 * k * plane);
+      const xs = lm.map((p) => p.x * width), ys = lm.map((p) => p.y * height);
+      boxes.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+    });
+    const result = await call(
+      { type: "run", feeds: { image: { data: input, dims: [2 * n, 3, SIZE, SIZE] } } },
+      [input.buffer],
+    );
+    msOut.textContent = `${result.ms.toFixed(0)} ms`;
+    const ages = result.outputs.age.data as Float32Array;
+    const probs = result.outputs.probs.data as Float32Array;
+    const bins = result.outputs.probs.dims[1];
+    return boxes.map((box, k) => {
+      const p = new Float32Array(bins);
+      for (let j = 0; j < bins; j++) p[j] = 0.5 * (probs[2 * k * bins + j] + probs[(2 * k + 1) * bins + j]);
+      return { box, age: 0.5 * (ages[2 * k] + ages[2 * k + 1]), probs: p };
+    });
+  }
+
+  function quantile(p: Float32Array, q: number) {
+    let sum = 0;
+    for (let i = 0; i < p.length; i++) {
+      sum += p[i];
+      if (sum >= q) return i;
+    }
+    return p.length - 1;
+  }
+
+  function drawDistribution(face: Face | null) {
+    const w = distCanvas.width, h = distCanvas.height;
+    distCtx.clearRect(0, 0, w, h);
+    if (!face) return;
+    const p = face.probs;
+    const lo = quantile(p, 0.1), hi = quantile(p, 0.9);
+    const peak = Math.max(...p);
+    const bw = w / p.length;
+    const color = accent();
+    for (let i = 0; i < p.length; i++) {
+      const bh = (p[i] / peak) * (h - 6);
+      distCtx.fillStyle = i >= lo && i <= hi ? color : "rgb(140 140 140 / 0.45)";
+      distCtx.fillRect(i * bw + 0.5, h - bh, Math.max(1, bw - 1), bh);
+    }
+    const x = (face.age / (p.length - 1)) * w;
+    distCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#111";
+    distCtx.fillRect(x - 1.5, 0, 3, h);
+  }
+
+  function showResult(list: Face[]) {
+    const main = list[list.length - 1] ?? null;
+    if (!main) {
+      ageOut.innerHTML = "<span> - </span>";
+      rangeOut.textContent = running ? "Show a face to the camera." : "No face found in this photo.";
+      cropCtx.clearRect(0, 0, SIZE, SIZE);
+      drawDistribution(null);
+      return;
+    }
+    const lo = quantile(main.probs, 0.1), hi = quantile(main.probs, 0.9);
+    ageOut.innerHTML = `${main.age.toFixed(0)}<small>years</small>`;
+    rangeOut.textContent = `80 % of the probability between ${lo} and ${hi}${list.length > 1 ? `. ${list.length} faces, the largest shown here.` : "."}`;
+    drawDistribution(main);
+  }
+
+  function draw(source: CanvasImageSource, mirror: boolean) {
+    const w = canvas.width, h = canvas.height;
+    ctx.save();
+    if (mirror) {
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1); // selfie view for the camera
+    }
+    ctx.drawImage(source, 0, 0, w, h);
+    ctx.restore();
+    const shown = canvas.getBoundingClientRect().width || w;
+    const s = Math.round(15 * Math.max(1, w / shown));
+    const color = accent();
+    ctx.font = `600 ${s}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    ctx.lineWidth = Math.max(2, s / 6);
+    for (const face of faces) {
+      let [x0, y0, x1, y1] = face.box;
+      if (mirror) [x0, x1] = [w - x1, w - x0];
+      ctx.strokeStyle = color;
+      ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      const text = `${face.age.toFixed(0)} years`;
+      const tw = ctx.measureText(text).width;
+      const ty = Math.max(s + 8, y0 - 8);
+      ctx.fillStyle = color;
+      ctx.fillRect(x0 - ctx.lineWidth / 2, ty - s - 4, tw + 14, s + 12);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(text, x0 + 6, ty + 2);
+    }
+  }
+
+  async function loop() {
+    if (!running) return;
+    if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      if (!busy) {
+        busy = true;
+        const t0 = performance.now();
+        const result = landmarker!.detectForVideo(video, t0);
+        mpOut.textContent = `${(performance.now() - t0).toFixed(1)} ms`;
+        const landmarks = result.faceLandmarks ?? [];
+        const mine = generation;
+        const work = landmarks.length
+          ? estimate(video, video.videoWidth, video.videoHeight, landmarks)
+          : Promise.resolve([] as Face[]);
+        work
+          .then((fresh) => {
+            if (mine !== generation || !running) return;
+            // smooth the age of a face that stays in view; match faces by their position
+            faces = fresh.map((f) => {
+              const cx = (f.box[0] + f.box[2]) / 2;
+              const prev = faces.find((o) => Math.abs((o.box[0] + o.box[2]) / 2 - cx) < (f.box[2] - f.box[0]) / 2);
+              if (!prev) return f;
+              const probs = f.probs.map((v, i) => 0.7 * prev.probs[i] + 0.3 * v);
+              return { box: f.box, age: 0.7 * prev.age + 0.3 * f.age, probs };
+            });
+            showResult(faces);
+          })
+          .catch((error) => {
+            errorEl.hidden = false;
+            errorEl.textContent = `Could not estimate: ${(error as Error).message}`;
+          })
+          .finally(() => {
+            busy = false;
+          });
+      }
+      draw(video, true);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function stop() {
+    running = false;
+    generation++;
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+    stopBtn.hidden = true;
+    startBtn.disabled = false;
+    startBtn.textContent = "Start camera and estimate";
+  }
+
+  async function readPhoto(file: File) {
+    errorEl.hidden = true;
+    if (running) stop();
+    const mine = ++generation;
+    startBtn.disabled = true;
+    try {
+      await ensureModels();
+      const image = new Image();
+      image.src = URL.createObjectURL(file);
+      await image.decode();
+      if (mine !== generation) return;
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.style.setProperty("--ar", `${image.naturalWidth} / ${image.naturalHeight}`);
+      await landmarker!.setOptions({ runningMode: "IMAGE" });
+      const t0 = performance.now();
+      const result = landmarker!.detect(image);
+      mpOut.textContent = `${(performance.now() - t0).toFixed(1)} ms`;
+      const landmarks = result.faceLandmarks ?? [];
+      faces = landmarks.length ? await estimate(image, image.naturalWidth, image.naturalHeight, landmarks) : [];
+      if (mine !== generation) return;
+      draw(image, false);
+      showResult(faces);
+      veil.classList.add("is-hidden");
+      URL.revokeObjectURL(image.src);
+    } catch (error) {
+      errorEl.hidden = false;
+      errorEl.textContent = `Could not read the photo: ${(error as Error).message}`;
+      veilText.textContent = "The model could not start. Try again.";
+    } finally {
+      startBtn.disabled = false;
+    }
+  }
+  for (const input of root.querySelectorAll<HTMLInputElement>("[data-a-upload], [data-a-upload2]")) {
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (file) void readPhoto(file);
+      input.value = "";
+    });
+  }
+
+  startBtn.addEventListener("click", async () => {
+    errorEl.hidden = true;
+    startBtn.disabled = true;
+    startBtn.textContent = "Loading models…";
+    try {
+      const camera = navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      camera.catch(() => {}); // handled below, after the models have loaded
+      await ensureModels();
+      await landmarker!.setOptions({ runningMode: "VIDEO" });
+      stream = await camera;
+      video.srcObject = stream;
+      await video.play();
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      canvas.style.setProperty("--ar", `${canvas.width} / ${canvas.height}`);
+      faces = [];
+      generation++;
+      running = true;
+      lastVideoTime = -1;
+      veil.classList.add("is-hidden");
+      stopBtn.hidden = false;
+      showResult([]);
+      requestAnimationFrame(loop);
+    } catch (error) {
+      stop();
+      errorEl.hidden = false;
+      errorEl.textContent =
+        (error as Error).name === "NotAllowedError"
+          ? "The camera was not allowed. The demo needs it, and the frames never leave your device."
+          : `Could not start: ${(error as Error).message}`;
+      veilText.textContent = "Camera or model could not start.";
+    }
+  });
+  stopBtn.addEventListener("click", () => {
+    stop();
+    veil.classList.remove("is-hidden");
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && running) {
+      stop();
+      veil.classList.remove("is-hidden");
+    }
+  });
+</script>
